@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>V-Q Droop Characteristic</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Times New Roman', Georgia, serif;
+  background: #eef0f3;
+  padding: 24px;
+  min-height: 100vh;
+}
+.card {
+  background: white;
+  border-radius: 10px;
+  padding: 28px;
+  max-width: 1200px;
+  margin: 0 auto;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+.title {
+  font-family: Arial, sans-serif;
+  font-size: 17px;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 22px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #e8e8e8;
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.graph-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.graph-toolbar {
+  width: 900px;
+  max-width: 100%;
+  display: flex;
+  justify-content: flex-end;
+}
+canvas { display: block; border: 1px solid #ddd; border-radius: 4px; max-width: 100%; }
+
+.row2 {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+.col-left, .col-right {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Formula block */
+.formula-block {
+  background: #fafafa;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 16px 14px 12px;
+}
+.block-label {
+  font-family: Arial, sans-serif;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: #888;
+  margin-bottom: 10px;
+}
+.formula-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 15px;
+  flex-wrap: wrap;
+}
+.frac {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  vertical-align: middle;
+  font-size: 13.5px;
+}
+.frac .num {
+  border-bottom: 1.5px solid #333;
+  padding: 2px 8px 3px;
+  text-align: center;
+  white-space: nowrap;
+}
+.frac .den {
+  padding: 3px 8px 2px;
+  text-align: center;
+  white-space: nowrap;
+}
+.red-box {
+  display: inline-block;
+  border: 2px solid red;
+  padding: 0 3px;
+  border-radius: 2px;
+  color: #c00;
+  font-weight: bold;
+}
+.arrow-down {
+  text-align: center;
+  font-size: 20px;
+  color: #555;
+  margin: 4px 0;
+}
+.n-result {
+  background: linear-gradient(135deg,#f5f7ff,#eef1ff);
+  border: 1px solid #c5ccee;
+  border-radius: 6px;
+  padding: 12px;
+  text-align: center;
+  font-size: 21px;
+  font-style: italic;
+  color: #1a1a2e;
+}
+
+/* Params */
+.params-block {
+  background: #fafafa;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 14px;
+}
+.param-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 11px;
+}
+.param-item label {
+  display: block;
+  font-family: Arial, sans-serif;
+  font-size: 11px;
+  color: #666;
+  margin-bottom: 4px;
+}
+.param-item label sub { font-size: 9px; }
+.param-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.param-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: 'Times New Roman', serif;
+  transition: border-color .15s;
+}
+.param-row input:focus { outline: none; border-color: #4a90e2; box-shadow: 0 0 0 2px rgba(74,144,226,.2); }
+.param-row input.red-border { border: 2px solid red; }
+.unit { font-family: Arial, sans-serif; font-size: 11px; color: #999; white-space: nowrap; }
+
+/* Verify */
+.verify-box {
+  background: #fffbea;
+  border: 1px solid #f0d060;
+  border-radius: 5px;
+  padding: 10px 13px;
+  font-family: Arial, sans-serif;
+  font-size: 12.5px;
+  color: #6b4e00;
+  line-height: 1.7;
+}
+.verify-box strong { color: #4a3000; }
+
+/* ── Data points panel ── */
+.points-panel {
+  margin-top: 24px;
+  border-top: 2px solid #e8e8e8;
+  padding-top: 20px;
+}
+.points-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.points-header h3 {
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  color: #2c3e50;
+  font-weight: 600;
+}
+.btn {
+  font-family: Arial, sans-serif;
+  font-size: 13px;
+  padding: 7px 14px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background .15s, transform .1s;
+}
+.btn:active { transform: translateY(1px); }
+.btn-add { background: #4a90e2; color: white; }
+.btn-add:hover { background: #357abd; }
+.btn-del {
+  background: #f5f5f5;
+  color: #c0392b;
+  padding: 4px 10px;
+  font-size: 12px;
+  border: 1px solid #ddd;
+}
+.btn-del:hover { background: #ffe5e5; }
+
+.points-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: Arial, sans-serif;
+  font-size: 13px;
+}
+.points-table thead th {
+  text-align: left;
+  padding: 8px 10px;
+  background: #f5f7fa;
+  color: #555;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  border-bottom: 2px solid #e0e0e0;
+}
+.points-table tbody td {
+  padding: 6px 10px;
+  border-bottom: 1px solid #eee;
+}
+.points-table input {
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-family: 'Times New Roman', serif;
+  font-size: 13px;
+}
+.points-table input:focus {
+  outline: none;
+  border-color: #4a90e2;
+}
+.col-color { width: 30px; }
+.col-q, .col-v { width: 150px; }
+.col-calc { color: #777; font-style: italic; font-family: 'Times New Roman', serif; }
+.col-del { width: 60px; text-align: right; }
+.color-swatch {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.2);
+}
+.delta-pos { color: #2e7d32; }
+.delta-neg { color: #c62828; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="title">V–Q Droop Characteristic — 可編輯參數即時更新</div>
+  <div class="stack">
+
+    <!-- ROW 1: Graph -->
+    <div class="graph-wrap">
+      <div class="graph-toolbar">
+        <button class="btn btn-add" id="download-svg" style="background:#8e44ad">💾 下載 SVG</button>
+      </div>
+      <canvas id="gc" width="900" height="560"></canvas>
+    </div>
+
+    <!-- ROW 2: Formula + Params/Verify -->
+    <div class="row2">
+
+      <!-- Formula display -->
+      <div class="col-left">
+        <div class="formula-block">
+          <div class="block-label">斜率公式 (Droop Slope)</div>
+          <div class="formula-row" id="formula"></div>
+          <div class="arrow-down">↓</div>
+          <div class="n-result" id="nresult"></div>
+        </div>
+      </div>
+
+      <div class="col-right">
+      <!-- Parameters -->
+      <div class="params-block">
+        <div class="block-label">輸入參數</div>
+        <div class="param-grid">
+
+          <div class="param-item">
+            <label>標稱線電壓 V<sub>LL0</sub></label>
+            <div class="param-row">
+              <input type="number" id="vll0" value="440" min="1" step="1">
+              <span class="unit">V</span>
+            </div>
+          </div>
+
+          <div class="param-item">
+            <label>電壓比 V<sub>min</sub>/V₀ <span style="color:red">★</span></label>
+            <div class="param-row">
+              <input type="number" id="ratio" value="0.97" min="0.5" max="0.999" step="0.001" class="red-border">
+              <span class="unit">p.u.</span>
+            </div>
+          </div>
+
+          <div class="param-item">
+            <label>最大無效功率 Q<sub>max</sub></label>
+            <div class="param-row">
+              <input type="number" id="qmax" value="100" min="1" step="1">
+              <span class="unit">kVAR</span>
+            </div>
+          </div>
+
+          <div class="param-item">
+            <label>參考無效功率 Q₀</label>
+            <div class="param-row">
+              <input type="number" id="q0val" value="0" step="1">
+              <span class="unit">kVAR</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Verify point -->
+      <div class="verify-box">
+        <strong>驗證點:</strong> Q = 30 kVAR, V = 436 V<sub>rms</sub><br>
+        <span id="vcheck"></span>
+      </div>
+      </div>
+
+    </div>
+
+  <!-- ── Data points panel ── -->
+  <div class="points-panel">
+    <div class="points-header">
+      <h3>📍 量測資料點</h3>
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <label style="font-family:Arial,sans-serif; font-size:12px; color:#555; display:inline-flex; align-items:center; gap:5px;">
+          <input type="checkbox" id="show-labels"> 顯示標籤
+        </label>
+        <label style="font-family:Arial,sans-serif; font-size:12px; color:#555;">V 單位:
+          <select id="v-unit" style="margin-left:6px; padding:4px 8px; border:1px solid #ccc; border-radius:4px; font-family:Arial,sans-serif; font-size:12px;">
+            <option value="V_LN">V_LN (相電壓)</option>
+            <option value="V_LL">V_LL (線電壓)</option>
+          </select>
+        </label>
+        <button class="btn btn-add" id="add-point" style="background:#7f8c8d">+ 手動新增</button>
+        <button class="btn btn-add" id="download-template" style="background:#27ae60">📄 下載範本</button>
+        <button class="btn btn-add" id="import-excel">📥 匯入 Excel</button>
+        <input type="file" id="excel-file" accept=".xlsx,.xls,.csv" style="display:none">
+      </div>
+    </div>
+    <table class="points-table">
+      <thead>
+        <tr>
+          <th class="col-color"></th>
+          <th class="col-q">Q (kVAR)</th>
+          <th class="col-v" id="v-col-header">V<sub>LN</sub> (V<sub>rms</sub>)</th>
+          <th>理論值 / 偏差</th>
+          <th class="col-del"></th>
+        </tr>
+      </thead>
+      <tbody id="points-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+// ─── helpers ───────────────────────────────────────────────────────────────
+const SQ2 = Math.sqrt(2), SQ3 = Math.sqrt(3);
+const vllFactor = SQ3 / SQ2;   // VLL = VLN × √(3/2)
+
+function params() {
+  return {
+    vll0 : +document.getElementById('vll0').value  || 440,
+    ratio: +document.getElementById('ratio').value || 0.97,
+    qmaxK: +document.getElementById('qmax').value  || 100,
+    q0K  : +document.getElementById('q0val').value || 0,
+  };
+}
+
+function compute(p) {
+  const v0   = SQ2 * p.vll0 / SQ3;
+  const vmin = v0 * p.ratio;
+  const vmax = 2 * v0 - vmin;          // symmetric about V0
+  const qmax = p.qmaxK * 1000;
+  const q0   = p.q0K   * 1000;
+  const n    = (v0 - vmin) / (qmax - q0);
+  return { v0, vmin, vmax, qmax, q0, n };
+}
+
+// ─── Formula render ─────────────────────────────────────────────────────────
+function renderFormula(p, c) {
+  const { vll0, ratio, qmaxK, q0K } = p;
+  const { n } = c;
+
+  document.getElementById('formula').innerHTML = `
+    <i>n</i>&nbsp;=&nbsp;
+    <span class="frac">
+      <span class="num">V<sub>0</sub> − V<sub>min</sub></span>
+      <span class="den">Q<sub>max</sub> − Q<sub>0</sub></span>
+    </span>
+    &nbsp;=&nbsp;
+    <span class="frac">
+      <span class="num">√2 × ${vll0}/<sub style="font-size:10px">√3</sub>
+        &thinsp;(1 − <span class="red-box">${ratio}</span>)</span>
+      <span class="den">${qmaxK}k − ${q0K}k</span>
+    </span>
+  `;
+
+  document.getElementById('nresult').innerHTML =
+    `<i>n</i> &cong; ${n.toExponential(2)} #`;
+
+  // Verify Q=30kVAR
+  const qTest = 30000;
+  const { v0, q0 } = c;
+  const vLN = v0 - n * (qTest - q0);
+  const vLL = vLN * vllFactor;
+  document.getElementById('vcheck').innerHTML =
+    `計算: V<sub>LN</sub>(30 kVAR) = ${vLN.toFixed(2)} V，V<sub>LL</sub> = ${vLL.toFixed(1)} V`;
+}
+
+// ─── Graph ──────────────────────────────────────────────────────────────────
+// Baseline reference window — the design's operating region is always visible.
+// Real frame is computed each draw to also include all data points + current params.
+const BASELINE = { qLo: -150000, qHi: 150000, vLo: 330, vHi: 390 };
+
+// Shared frame, written by drawGraph(), read by drawDataPoints().
+let currentFrame = null;
+
+function computeFrame(p, c) {
+  let qLo = BASELINE.qLo, qHi = BASELINE.qHi;
+  let vLo = BASELINE.vLo, vHi = BASELINE.vHi;
+
+  // Include current params' operating-region corners
+  const vAtQminP = c.v0 - c.n * (-c.qmax - c.q0);
+  const vAtQmaxP = c.v0 - c.n * ( c.qmax - c.q0);
+  const paramQs = [-c.qmax, c.qmax, c.q0];
+  const paramVs = [c.vmin, c.v0, c.vmax, vAtQminP, vAtQmaxP];
+  paramQs.forEach(q => { if (q < qLo) qLo = q; if (q > qHi) qHi = q; });
+  paramVs.forEach(v => { if (v < vLo) vLo = v; if (v > vHi) vHi = v; });
+
+  // Include all data points (converted to VLN per current unit selection)
+  dataPoints.forEach(pt => {
+    const qW = (+pt.q) * 1000;
+    const vLN = ptVLN(pt);
+    if (qW  < qLo) qLo = qW;
+    if (qW  > qHi) qHi = qW;
+    if (vLN < vLo) vLo = vLN;
+    if (vLN > vHi) vHi = vLN;
+  });
+
+  // 8% padding on each side
+  const qPad = (qHi - qLo) * 0.08 || 1;
+  const vPad = (vHi - vLo) * 0.08 || 1;
+  return { qLo: qLo - qPad, qHi: qHi + qPad, vLo: vLo - vPad, vHi: vHi + vPad };
+}
+
+function drawGraph(p, c) {
+  const cv = document.getElementById('gc');
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const { v0, vmin, vmax, qmax, q0, n } = c;
+
+  // Margins
+  const ml = 90, mr = 45, mt = 50, mb = 72;
+  const pw = W - ml - mr, ph = H - mt - mb;
+
+  // Dynamic world ranges — baseline + params + data points
+  const frame = computeFrame(p, c);
+  currentFrame = frame;
+  const qLo = frame.qLo, qHi = frame.qHi;
+  const vLo = frame.vLo, vHi = frame.vHi;
+
+  const txRaw = q => ml + (q - qLo) / (qHi - qLo) * pw;
+  const tyRaw = v => mt + (1 - (v - vLo) / (vHi - vLo)) * ph;
+  // Clamp screen coords to the plot rectangle so out-of-frame values
+  // don't spill onto axis labels.
+  const clamp = (val, lo, hi) => Math.max(lo, Math.min(hi, val));
+  const tx = q => clamp(txRaw(q), ml, ml + pw);
+  const ty = v => clamp(tyRaw(v), mt, mt + ph);
+  // x-axis sits at a fixed V level inside the frame (just above bottom)
+  const xAx = tyRaw(vLo + (vHi - vLo) * 0.08);
+
+  // Clip region = plot rectangle (used for region & droop line drawing)
+  const clipPlot = () => {
+    ctx.beginPath();
+    ctx.rect(ml, mt, pw, ph);
+    ctx.clip();
+  };
+
+  // ── operating region ──────────────────────────────────────────────────────
+  ctx.save();
+  clipPlot();
+  ctx.fillStyle = 'rgba(255,185,120,0.22)';
+  ctx.fillRect(tx(-qmax), ty(vmax), tx(qmax)-tx(-qmax), ty(vmin)-ty(vmax));
+  ctx.setLineDash([7,4]);
+  ctx.strokeStyle = 'rgba(210,120,40,0.75)';
+  ctx.lineWidth = 1.4;
+  ctx.strokeRect(tx(-qmax), ty(vmax), tx(qmax)-tx(-qmax), ty(vmin)-ty(vmax));
+  ctx.restore();
+
+  // "Operating region" text
+  ctx.font = '12px Arial';
+  ctx.fillStyle = 'rgba(180,90,20,.85)';
+  ctx.textAlign = 'center';
+  const olx = tx(qmax * 0.52), oly = ty((v0 + vmax) / 2) - 6;
+  ctx.fillText('Operating', olx, oly);
+  ctx.fillText('region', olx, oly + 16);
+
+  // ── axes ──────────────────────────────────────────────────────────────────
+  ctx.strokeStyle = '#222';
+  ctx.lineWidth = 1.8;
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#222';
+
+  // Y-axis at Q=0
+  const yax = tx(0);
+  ctx.beginPath();
+  ctx.moveTo(yax, mt + ph + 14);
+  ctx.lineTo(yax, mt - 18);
+  ctx.stroke();
+  // arrowhead up
+  ctx.beginPath();
+  ctx.moveTo(yax - 5, mt - 13);
+  ctx.lineTo(yax, mt - 22);
+  ctx.lineTo(yax + 5, mt - 13);
+  ctx.closePath(); ctx.fill();
+
+  // X-axis
+  ctx.beginPath();
+  ctx.moveTo(ml - 16, xAx);
+  ctx.lineTo(ml + pw + 18, xAx);
+  ctx.stroke();
+  // arrowhead right
+  ctx.beginPath();
+  ctx.moveTo(ml + pw + 13, xAx - 5);
+  ctx.lineTo(ml + pw + 22, xAx);
+  ctx.lineTo(ml + pw + 13, xAx + 5);
+  ctx.closePath(); ctx.fill();
+
+  // Y-axis label: V_LN (V)
+  ctx.font = 'italic 14px Times New Roman';
+  ctx.fillStyle = '#222';
+  ctx.textAlign = 'left';
+  ctx.fillText('V', yax - 34, mt - 24);
+  ctx.font = '10px Times New Roman';
+  ctx.fillText('LN', yax - 25, mt - 18);
+  ctx.font = '13px Times New Roman';
+  ctx.fillText('(V)', yax - 13, mt - 24);
+
+  // X-axis label
+  ctx.font = 'italic 13px Times New Roman';
+  ctx.fillText('Q (VAR)', ml + pw + 24, xAx + 5);
+
+  // ── reference dashed lines ────────────────────────────────────────────────
+  ctx.save();
+  ctx.setLineDash([4,3]);
+  ctx.strokeStyle = '#bbb';
+  ctx.lineWidth = 1;
+
+  // Horizontal at Vmax, V0, Vmin → to y-axis or to the point on line
+  function hline(v, toX) {
+    ctx.beginPath(); ctx.moveTo(ml, ty(v)); ctx.lineTo(toX, ty(v)); ctx.stroke();
+  }
+  hline(vmax, tx(-qmax));
+  hline(v0,   tx(q0));
+  hline(vmin, tx(qmax));
+
+  // Vertical at -Qmax, Q0, Qmax → from x-axis to point on line
+  function vline(q, toY) {
+    ctx.beginPath(); ctx.moveTo(tx(q), xAx); ctx.lineTo(tx(q), toY); ctx.stroke();
+  }
+  vline(-qmax, ty(vmax));
+  vline(q0,    ty(v0));
+  vline(qmax,  ty(vmin));
+
+  ctx.restore();
+
+  // ── droop line ────────────────────────────────────────────────────────────
+  const vAtQmin = v0 - n * (-qmax - q0);
+  const vAtQmax = v0 - n * ( qmax - q0);
+  ctx.save();
+  clipPlot();
+  ctx.strokeStyle = '#111';
+  ctx.lineWidth = 2.2;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(txRaw(-qmax), tyRaw(vAtQmin));
+  ctx.lineTo(txRaw( qmax), tyRaw(vAtQmax));
+  ctx.stroke();
+  ctx.restore();
+
+  // ── key dots ──────────────────────────────────────────────────────────────
+  function dot(qv, vv, color, r) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(tx(qv), ty(vv), r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  dot(-qmax, vAtQmin, 'red', 6);
+  dot( qmax, vAtQmax, 'red', 6);
+  dot(  q0,  v0,      '#111', 6);
+
+  // ── text labels ───────────────────────────────────────────────────────────
+  function label2(text1, text2, x, y, color1, align) {
+    ctx.textAlign = align || 'left';
+    ctx.fillStyle = color1 || '#c00';
+    ctx.font = '11px Times New Roman';
+    ctx.fillText(text1, x, y);
+    ctx.fillStyle = '#555';
+    ctx.fillText(text2, x, y + 13);
+  }
+
+  // Vmax
+  label2(
+    `V_max = ${vAtQmin.toFixed(3)} V`,
+    `(V_LL,max = ${(vAtQmin * vllFactor).toFixed(1)} V)`,
+    yax + 7, ty(vmax) - 8, 'red'
+  );
+
+  // V0
+  label2(
+    `V₀ = ${v0.toFixed(2)} V`,
+    `(V_LL0 = ${(v0 * vllFactor).toFixed(1)} V)`,
+    yax + 7, ty(v0) - 8, '#222'
+  );
+
+  // Vmin
+  label2(
+    `V_min = ${vAtQmax.toFixed(2)} V`,
+    `(V_LL,min = ${(vAtQmax * vllFactor).toFixed(1)} V)`,
+    yax + 7, ty(vmin) - 8, 'red'
+  );
+
+  // X-axis tick labels
+  ctx.fillStyle = '#333';
+  ctx.font = '11px Times New Roman';
+  ctx.textAlign = 'center';
+
+  const kmaxK = p.qmaxK;
+  ctx.fillText(`−Q_max = −${kmaxK} kVAR`, tx(-qmax), xAx + 20);
+  ctx.fillText(`Q_ref = ${p.q0K}kVAR`,              tx(q0),    xAx + 20);
+  ctx.fillText(`Q_max = ${kmaxK} kVAR`,              tx(qmax),  xAx + 20);
+
+  // n label near Qmax point
+  ctx.fillStyle = 'red';
+  ctx.textAlign = 'left';
+  ctx.font = '11px Arial';
+  ctx.fillText(`n = ${n.toExponential(2)}`, tx(qmax) + 8, ty(vAtQmax) + 5);
+
+  // Tick marks on axes
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 1.2;
+  [vmax, v0, vmin].forEach(v => {
+    ctx.beginPath();
+    ctx.moveTo(yax - 5, ty(v));
+    ctx.lineTo(yax + 5, ty(v));
+    ctx.stroke();
+  });
+  [-qmax, q0, qmax].forEach(q => {
+    ctx.beginPath();
+    ctx.moveTo(tx(q), xAx - 4);
+    ctx.lineTo(tx(q), xAx + 4);
+    ctx.stroke();
+  });
+}
+
+// ─── data points (Q in kVAR, V in VLL Vrms) ─────────────────────────────────
+const POINT_COLOR = '#e74c3c';
+let dataPoints = [
+  { id: 1, q: 30,  v: 356.03 },
+  { id: 2, q: -50, v: 362.65 },
+];
+let nextId = 3;
+let vUnit = 'V_LN';
+let showLabels = false;
+
+// Convert a data point's V input to V_LN based on the current unit selection.
+function ptVLN(pt) {
+  return vUnit === 'V_LN' ? (+pt.v) : (+pt.v) / vllFactor;
+}
+
+function renderPoints(p, c) {
+  const tbody = document.getElementById('points-body');
+  tbody.innerHTML = dataPoints.map((pt, i) => {
+    const color = POINT_COLOR;
+    // Theoretical V at this Q using current droop
+    const qWorld = (+pt.q) * 1000;
+    const vLN_theo = c.v0 - c.n * (qWorld - c.q0);
+    const vLL_theo = vLN_theo * vllFactor;
+    const theoInUnit = vUnit === 'V_LN' ? vLN_theo : vLL_theo;
+    const dv = (+pt.v) - theoInUnit;
+    const dvClass = Math.abs(dv) < 0.05 ? '' : (dv > 0 ? 'delta-pos' : 'delta-neg');
+    const dvSign  = dv > 0 ? '+' : '';
+    const unitLabel = vUnit === 'V_LN' ? 'V_LN' : 'V_LL';
+    return `
+      <tr data-id="${pt.id}">
+        <td><div class="color-swatch" style="background:${color}"></div></td>
+        <td><input type="number" class="pt-q" value="${pt.q}" step="1"></td>
+        <td><input type="number" class="pt-v" value="${pt.v}" step="0.1"></td>
+        <td class="col-calc">理論: V<sub>LN</sub> = ${vLN_theo.toFixed(2)} V / V<sub>LL</sub> = ${vLL_theo.toFixed(1)} V
+            &nbsp;<span class="${dvClass}">(Δ${unitLabel} = ${dvSign}${dv.toFixed(2)} V)</span></td>
+        <td class="col-del"><button class="btn btn-del" data-act="del">刪除</button></td>
+      </tr>
+    `;
+  }).join('');
+
+  // Wire row events
+  tbody.querySelectorAll('tr').forEach(tr => {
+    const id = +tr.dataset.id;
+    tr.querySelector('.pt-q').addEventListener('input', e => {
+      const pt = dataPoints.find(x => x.id === id);
+      pt.q = +e.target.value || 0;
+      update();
+    });
+    tr.querySelector('.pt-v').addEventListener('input', e => {
+      const pt = dataPoints.find(x => x.id === id);
+      pt.v = +e.target.value || 0;
+      update();
+    });
+    tr.querySelector('[data-act="del"]').addEventListener('click', () => {
+      dataPoints = dataPoints.filter(x => x.id !== id);
+      update();
+    });
+  });
+}
+
+function drawDataPoints(p, c) {
+  const cv = document.getElementById('gc');
+  const ctx = cv.getContext('2d');
+  const ml = 90, mr = 45, mt = 50, mb = 72;
+  const pw = cv.width - ml - mr, ph = cv.height - mt - mb;
+
+  if (!currentFrame) return;
+  const { qLo, qHi, vLo, vHi } = currentFrame;
+  const txRaw = q => ml + (q - qLo) / (qHi - qLo) * pw;
+  const tyRaw = v => mt + (1 - (v - vLo) / (vHi - vLo)) * ph;
+
+  dataPoints.forEach((pt) => {
+    const color = POINT_COLOR;
+    const qW = (+pt.q) * 1000;
+    const vLN = ptVLN(pt);   // convert per current unit selection
+    const sx = txRaw(qW), sy = tyRaw(vLN);
+
+    // dashed guide lines from axes to the point
+    ctx.save();
+    ctx.setLineDash([3, 3]);
+    ctx.strokeStyle = color + '88';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(sx, tyRaw(vLo + (vHi - vLo) * 0.08)); ctx.lineTo(sx, sy);
+    ctx.moveTo(ml, sy); ctx.lineTo(sx, sy);
+    ctx.stroke();
+    ctx.restore();
+
+    // marker (filled diamond)
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.rotate(Math.PI / 4);
+    ctx.fillStyle = color;
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5;
+    ctx.fillRect(-6, -6, 12, 12);
+    ctx.strokeRect(-6, -6, 12, 12);
+    ctx.restore();
+
+    // label (optional)
+    if (showLabels) {
+      ctx.fillStyle = color;
+      ctx.font = 'bold 11px Arial';
+      ctx.textAlign = 'left';
+      ctx.fillText(
+        `(${pt.q}k, ${pt.v} ${vUnit})`,
+        sx + 9, sy - 8
+      );
+    }
+  });
+}
+
+// ─── SVG export ─────────────────────────────────────────────────────────────
+function buildSVG(p, c) {
+  const W = 900, H = 560;
+  const { v0, vmin, vmax, qmax, q0, n } = c;
+  const ml = 90, mr = 45, mt = 50, mb = 72;
+  const pw = W - ml - mr, ph = H - mt - mb;
+
+  const frame = computeFrame(p, c);
+  const { qLo, qHi, vLo, vHi } = frame;
+
+  const txRaw = q => ml + (q - qLo) / (qHi - qLo) * pw;
+  const tyRaw = v => mt + (1 - (v - vLo) / (vHi - vLo)) * ph;
+  const clamp = (val, lo, hi) => Math.max(lo, Math.min(hi, val));
+  const tx = q => clamp(txRaw(q), ml, ml + pw);
+  const ty = v => clamp(tyRaw(v), mt, mt + ph);
+  const xAx = tyRaw(vLo + (vHi - vLo) * 0.08);
+  const yax = tx(0);
+
+  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const f = v => (Math.round(v * 1000) / 1000);
+
+  let svg = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+  svg += `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" font-family="Times New Roman, serif">\n`;
+  svg += `<rect width="${W}" height="${H}" fill="white"/>\n`;
+
+  // Operating region
+  const rx1 = tx(-qmax), ry1 = ty(vmax), rx2 = tx(qmax), ry2 = ty(vmin);
+  svg += `<rect x="${f(rx1)}" y="${f(ry1)}" width="${f(rx2-rx1)}" height="${f(ry2-ry1)}" fill="rgba(255,185,120,0.22)" stroke="rgba(210,120,40,0.75)" stroke-width="1.4" stroke-dasharray="7,4"/>\n`;
+
+  // Operating region text
+  const olx = tx(qmax * 0.52), oly = ty((v0 + vmax) / 2) - 6;
+  svg += `<text x="${f(olx)}" y="${f(oly)}" font-family="Arial" font-size="12" fill="rgba(180,90,20,0.85)" text-anchor="middle">Operating</text>\n`;
+  svg += `<text x="${f(olx)}" y="${f(oly+16)}" font-family="Arial" font-size="12" fill="rgba(180,90,20,0.85)" text-anchor="middle">region</text>\n`;
+
+  // Y-axis
+  svg += `<line x1="${f(yax)}" y1="${f(mt+ph+14)}" x2="${f(yax)}" y2="${f(mt-18)}" stroke="#222" stroke-width="1.8"/>\n`;
+  svg += `<polygon points="${f(yax-5)},${f(mt-13)} ${f(yax)},${f(mt-22)} ${f(yax+5)},${f(mt-13)}" fill="#222"/>\n`;
+  // X-axis
+  svg += `<line x1="${f(ml-16)}" y1="${f(xAx)}" x2="${f(ml+pw+18)}" y2="${f(xAx)}" stroke="#222" stroke-width="1.8"/>\n`;
+  svg += `<polygon points="${f(ml+pw+13)},${f(xAx-5)} ${f(ml+pw+22)},${f(xAx)} ${f(ml+pw+13)},${f(xAx+5)}" fill="#222"/>\n`;
+
+  // Axis labels
+  svg += `<text x="${f(yax-34)}" y="${f(mt-24)}" font-size="14" font-style="italic" fill="#222">V</text>`;
+  svg += `<text x="${f(yax-25)}" y="${f(mt-18)}" font-size="10" fill="#222">LN</text>`;
+  svg += `<text x="${f(yax-13)}" y="${f(mt-24)}" font-size="13" fill="#222">(V)</text>\n`;
+  svg += `<text x="${f(ml+pw+24)}" y="${f(xAx+5)}" font-size="13" font-style="italic" fill="#222">Q (VAR)</text>\n`;
+
+  // Reference dashed lines
+  const dashG = `stroke="#bbb" stroke-width="1" stroke-dasharray="4,3"`;
+  svg += `<line x1="${f(ml)}" y1="${f(ty(vmax))}" x2="${f(tx(-qmax))}" y2="${f(ty(vmax))}" ${dashG}/>\n`;
+  svg += `<line x1="${f(ml)}" y1="${f(ty(v0))}"   x2="${f(tx(q0))}"   y2="${f(ty(v0))}"   ${dashG}/>\n`;
+  svg += `<line x1="${f(ml)}" y1="${f(ty(vmin))}" x2="${f(tx(qmax))}" y2="${f(ty(vmin))}" ${dashG}/>\n`;
+  svg += `<line x1="${f(tx(-qmax))}" y1="${f(xAx)}" x2="${f(tx(-qmax))}" y2="${f(ty(vmax))}" ${dashG}/>\n`;
+  svg += `<line x1="${f(tx(q0))}"    y1="${f(xAx)}" x2="${f(tx(q0))}"    y2="${f(ty(v0))}"   ${dashG}/>\n`;
+  svg += `<line x1="${f(tx(qmax))}"  y1="${f(xAx)}" x2="${f(tx(qmax))}"  y2="${f(ty(vmin))}" ${dashG}/>\n`;
+
+  // Droop line (clipped via clipPath)
+  const vAtQmin = v0 - n * (-qmax - q0);
+  const vAtQmax = v0 - n * ( qmax - q0);
+  svg += `<defs><clipPath id="plotClip"><rect x="${ml}" y="${mt}" width="${pw}" height="${ph}"/></clipPath></defs>\n`;
+  svg += `<line x1="${f(txRaw(-qmax))}" y1="${f(tyRaw(vAtQmin))}" x2="${f(txRaw(qmax))}" y2="${f(tyRaw(vAtQmax))}" stroke="#111" stroke-width="2.2" clip-path="url(#plotClip)"/>\n`;
+
+  // Key dots
+  svg += `<circle cx="${f(tx(-qmax))}" cy="${f(ty(vAtQmin))}" r="6" fill="red"/>\n`;
+  svg += `<circle cx="${f(tx( qmax))}" cy="${f(ty(vAtQmax))}" r="6" fill="red"/>\n`;
+  svg += `<circle cx="${f(tx(q0))}"    cy="${f(ty(v0))}"      r="6" fill="#111"/>\n`;
+
+  // Label pairs
+  function label2(t1, t2, x, y, col) {
+    return `<text x="${f(x)}" y="${f(y)}" font-size="11" fill="${col}">${esc(t1)}</text>\n`
+         + `<text x="${f(x)}" y="${f(y+13)}" font-size="11" fill="#555">${esc(t2)}</text>\n`;
+  }
+  svg += label2(`V_max = ${vAtQmin.toFixed(3)} V`, `(V_LL,max = ${(vAtQmin*vllFactor).toFixed(1)} V)`, yax+7, ty(vmax)-8, 'red');
+  svg += label2(`V₀ = ${v0.toFixed(2)} V`,          `(V_LL0 = ${(v0*vllFactor).toFixed(1)} V)`,        yax+7, ty(v0)-8,   '#222');
+  svg += label2(`V_min = ${vAtQmax.toFixed(2)} V`,  `(V_LL,min = ${(vAtQmax*vllFactor).toFixed(1)} V)`, yax+7, ty(vmin)-8, 'red');
+
+  // X-axis tick labels
+  const kmaxK = p.qmaxK;
+  svg += `<text x="${f(tx(-qmax))}" y="${f(xAx+20)}" font-size="11" fill="#333" text-anchor="middle">−Q_max = −${kmaxK} kVAR</text>\n`;
+  svg += `<text x="${f(tx(q0))}"    y="${f(xAx+20)}" font-size="11" fill="#333" text-anchor="middle">Q_ref = ${p.q0K}kVAR</text>\n`;
+  svg += `<text x="${f(tx(qmax))}"  y="${f(xAx+20)}" font-size="11" fill="#333" text-anchor="middle">Q_max = ${kmaxK} kVAR</text>\n`;
+
+  // n label
+  svg += `<text x="${f(tx(qmax)+8)}" y="${f(ty(vAtQmax)+5)}" font-family="Arial" font-size="11" fill="red">n = ${n.toExponential(2)}</text>\n`;
+
+  // Tick marks
+  [vmax, v0, vmin].forEach(v => {
+    svg += `<line x1="${f(yax-5)}" y1="${f(ty(v))}" x2="${f(yax+5)}" y2="${f(ty(v))}" stroke="#333" stroke-width="1.2"/>\n`;
+  });
+  [-qmax, q0, qmax].forEach(q => {
+    svg += `<line x1="${f(tx(q))}" y1="${f(xAx-4)}" x2="${f(tx(q))}" y2="${f(xAx+4)}" stroke="#333" stroke-width="1.2"/>\n`;
+  });
+
+  // Data points
+  const ptColor = POINT_COLOR;
+  dataPoints.forEach(pt => {
+    const qW = (+pt.q) * 1000;
+    const vLN = ptVLN(pt);
+    const sx = txRaw(qW), sy = tyRaw(vLN);
+
+    // dashed guide lines
+    const dashP = `stroke="${ptColor}" stroke-opacity="0.53" stroke-width="1" stroke-dasharray="3,3"`;
+    const yBase = tyRaw(vLo + (vHi - vLo) * 0.08);
+    svg += `<line x1="${f(sx)}" y1="${f(yBase)}" x2="${f(sx)}" y2="${f(sy)}" ${dashP}/>\n`;
+    svg += `<line x1="${ml}" y1="${f(sy)}" x2="${f(sx)}" y2="${f(sy)}" ${dashP}/>\n`;
+
+    // diamond (rotated square)
+    svg += `<path d="M ${f(sx)} ${f(sy-8.485)} L ${f(sx+8.485)} ${f(sy)} L ${f(sx)} ${f(sy+8.485)} L ${f(sx-8.485)} ${f(sy)} Z" fill="${ptColor}" stroke="#fff" stroke-width="1.5"/>\n`;
+
+    // label
+    if (showLabels) {
+      svg += `<text x="${f(sx+9)}" y="${f(sy-8)}" font-family="Arial" font-size="11" font-weight="bold" fill="${ptColor}">(${esc(pt.q)}k, ${esc(pt.v)} ${esc(vUnit)})</text>\n`;
+    }
+  });
+
+  svg += `</svg>\n`;
+  return svg;
+}
+
+function downloadSVG() {
+  const p = params();
+  const c = compute(p);
+  // ensure frame is fresh
+  drawGraph(p, c);
+  const svgString = buildSVG(p, c);
+  const blob = new Blob([svgString], {type:'image/svg+xml'});
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), {href:url, download:'vq_droop.svg'});
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ─── main update ────────────────────────────────────────────────────────────
+function update() {
+  const p = params();
+  const c = compute(p);
+  renderFormula(p, c);
+  drawGraph(p, c);
+  drawDataPoints(p, c);
+  renderPoints(p, c);
+}
+
+document.getElementById('add-point').addEventListener('click', () => {
+  const seedV = vUnit === 'V_LN' ? 359.26 : 440;
+  dataPoints.push({ id: nextId++, q: 0, v: seedV });
+  update();
+});
+
+// ─── Excel template download ──────────────────────────────────────────────
+document.getElementById('download-template').addEventListener('click', () => {
+  const ws_data = [
+    ['V-Q Droop 量測資料匯入範本'],
+    ['說明: 填入 Q (kVAR) 與 V (Vrms)；單位欄填 V_LN 或 V_LL，留空則沿用網頁目前單位'],
+    [],
+    ['Q (kVAR)', 'V (Vrms)', '單位 (V_LN 或 V_LL)'],
+    [30,   356.03, 'V_LN'],
+    [-50,  362.65, 'V_LN'],
+    [50,   355,    'V_LN'],
+    [0,    440,    'V_LL'],
+    [-30,  442.5,  'V_LL'],
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(ws_data);
+  ws['!cols'] = [{wch:14},{wch:14},{wch:24}];
+  ws['!merges'] = [
+    {s:{r:0,c:0},e:{r:0,c:2}},
+    {s:{r:1,c:0},e:{r:1,c:2}},
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '量測資料');
+  XLSX.writeFile(wb, 'vq_droop_template.xlsx');
+});
+
+// ─── Excel import ─────────────────────────────────────────────────────────
+document.getElementById('import-excel').addEventListener('click', () => {
+  document.getElementById('excel-file').click();
+});
+
+document.getElementById('excel-file').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, {type:'array'});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+
+    // Find header row: first row whose first cell starts with "Q"
+    let hdrIdx = rows.findIndex(r =>
+      typeof r[0] === 'string' && /^Q/i.test(r[0].trim())
+    );
+    if (hdrIdx < 0) {
+      // Maybe no header — try row 0 as data
+      hdrIdx = -1;
+    }
+
+    const dataRows = rows.slice(hdrIdx + 1)
+      .filter(r => r[0] !== '' && r[0] !== undefined && r[0] !== null && !isNaN(+r[0]));
+
+    if (dataRows.length === 0) {
+      alert('找不到有效資料列。請確認檔案格式：第一欄 Q (kVAR)、第二欄 V (Vrms)、第三欄 單位 (可選)。');
+      return;
+    }
+
+    // Group rows by unit so we can handle mixed-unit imports.
+    const byUnit = { V_LN: [], V_LL: [] };
+    dataRows.forEach(r => {
+      const q = +r[0];
+      const v = +r[1];
+      const u = (r[2] || '').toString().trim().toUpperCase().replace(/[^A-Z_]/g,'');
+      const unit = (u === 'V_LL' || u === 'VLL') ? 'V_LL'
+                 : (u === 'V_LN' || u === 'VLN') ? 'V_LN'
+                 : vUnit; // default to current selection
+      if (!isNaN(q) && !isNaN(v)) byUnit[unit].push({q, v});
+    });
+
+    const totalLN = byUnit.V_LN.length, totalLL = byUnit.V_LL.length;
+
+    // If mixed, ask user which unit to set for the table.
+    // Strategy: pick the majority unit as the table unit, and convert the
+    // minority rows to that unit so all stored values are consistent.
+    const targetUnit = totalLN >= totalLL ? 'V_LN' : 'V_LL';
+    const convertedPoints = [];
+    byUnit.V_LN.forEach(({q,v}) => {
+      const vConv = targetUnit === 'V_LN' ? v : v * vllFactor;
+      convertedPoints.push({q, v: +vConv.toFixed(3)});
+    });
+    byUnit.V_LL.forEach(({q,v}) => {
+      const vConv = targetUnit === 'V_LL' ? v : v / vllFactor;
+      convertedPoints.push({q, v: +vConv.toFixed(3)});
+    });
+
+    // Apply
+    vUnit = targetUnit;
+    document.getElementById('v-unit').value = targetUnit;
+    document.getElementById('v-col-header').innerHTML =
+      targetUnit === 'V_LN'
+        ? 'V<sub>LN</sub> (V<sub>rms</sub>)'
+        : 'V<sub>LL</sub> (V<sub>rms</sub>)';
+
+    dataPoints = convertedPoints.map(pt => ({id: nextId++, ...pt}));
+    update();
+
+    const mixedNote = (totalLN > 0 && totalLL > 0)
+      ? `\n(原檔含混合單位：${totalLN} 列 V_LN + ${totalLL} 列 V_LL，已全部換算為 ${targetUnit})`
+      : '';
+    alert(`✅ 成功匯入 ${dataPoints.length} 筆資料點${mixedNote}`);
+  } catch (err) {
+    console.error(err);
+    alert('匯入失敗: ' + err.message);
+  } finally {
+    e.target.value = ''; // reset so same file can re-trigger
+  }
+});
+
+document.getElementById('show-labels').addEventListener('change', e => {
+  showLabels = e.target.checked;
+  update();
+});
+
+document.getElementById('download-svg').addEventListener('click', downloadSVG);
+
+document.getElementById('v-unit').addEventListener('change', e => {
+  vUnit = e.target.value;
+  document.getElementById('v-col-header').innerHTML =
+    vUnit === 'V_LN'
+      ? 'V<sub>LN</sub> (V<sub>rms</sub>)'
+      : 'V<sub>LL</sub> (V<sub>rms</sub>)';
+  update();
+});
+
+document.querySelectorAll('.param-row input').forEach(el =>
+  el.addEventListener('input', update));
+update();
+</script>
+</body>
+</html>
