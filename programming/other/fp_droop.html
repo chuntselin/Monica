@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F-P Droop Characteristic</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Times New Roman', Georgia, serif;
+  background: #eef0f3;
+  padding: 24px;
+  min-height: 100vh;
+}
+.card {
+  background: white;
+  border-radius: 10px;
+  padding: 28px;
+  max-width: 1200px;
+  margin: 0 auto;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+.title {
+  font-family: Arial, sans-serif;
+  font-size: 17px;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 22px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #e8e8e8;
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.graph-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.graph-toolbar {
+  width: 900px;
+  max-width: 100%;
+  display: flex;
+  justify-content: flex-end;
+}
+canvas { display: block; border: 1px solid #ddd; border-radius: 4px; max-width: 100%; }
+
+.row2 {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+.col-left, .col-right {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Formula block */
+.formula-block {
+  background: #fafafa;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 16px 14px 12px;
+}
+.block-label {
+  font-family: Arial, sans-serif;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: #888;
+  margin-bottom: 10px;
+}
+.formula-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 15px;
+  flex-wrap: wrap;
+}
+.frac {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  vertical-align: middle;
+  font-size: 13.5px;
+}
+.frac .num {
+  border-bottom: 1.5px solid #333;
+  padding: 2px 8px 3px;
+  text-align: center;
+  white-space: nowrap;
+}
+.frac .den {
+  padding: 3px 8px 2px;
+  text-align: center;
+  white-space: nowrap;
+}
+.red-box {
+  display: inline-block;
+  border: 2px solid red;
+  padding: 0 3px;
+  border-radius: 2px;
+  color: #c00;
+  font-weight: bold;
+}
+.arrow-down {
+  text-align: center;
+  font-size: 20px;
+  color: #555;
+  margin: 4px 0;
+}
+.m-result {
+  background: linear-gradient(135deg,#f5f7ff,#eef1ff);
+  border: 1px solid #c5ccee;
+  border-radius: 6px;
+  padding: 12px;
+  text-align: center;
+  font-size: 21px;
+  font-style: italic;
+  color: #1a1a2e;
+}
+
+/* Params */
+.params-block {
+  background: #fafafa;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 14px;
+}
+.param-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 11px;
+}
+.param-item label {
+  display: block;
+  font-family: Arial, sans-serif;
+  font-size: 11px;
+  color: #666;
+  margin-bottom: 4px;
+}
+.param-item label sub { font-size: 9px; }
+.param-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.param-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: 'Times New Roman', serif;
+  transition: border-color .15s;
+}
+.param-row input:focus { outline: none; border-color: #4a90e2; box-shadow: 0 0 0 2px rgba(74,144,226,.2); }
+.param-row input.red-border { border: 2px solid red; }
+.unit { font-family: Arial, sans-serif; font-size: 11px; color: #999; white-space: nowrap; }
+
+/* Verify */
+.verify-box {
+  background: #fffbea;
+  border: 1px solid #f0d060;
+  border-radius: 5px;
+  padding: 10px 13px;
+  font-family: Arial, sans-serif;
+  font-size: 12.5px;
+  color: #6b4e00;
+  line-height: 1.7;
+}
+.verify-box strong { color: #4a3000; }
+
+/* Data points panel */
+.points-panel {
+  margin-top: 24px;
+  border-top: 2px solid #e8e8e8;
+  padding-top: 20px;
+}
+.points-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.points-header h3 {
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  color: #2c3e50;
+  font-weight: 600;
+}
+.btn {
+  font-family: Arial, sans-serif;
+  font-size: 13px;
+  padding: 7px 14px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background .15s, transform .1s;
+}
+.btn:active { transform: translateY(1px); }
+.btn-add { background: #4a90e2; color: white; }
+.btn-add:hover { background: #357abd; }
+.btn-del {
+  background: #f5f5f5;
+  color: #c0392b;
+  padding: 4px 10px;
+  font-size: 12px;
+  border: 1px solid #ddd;
+}
+.btn-del:hover { background: #ffe5e5; }
+
+.points-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: Arial, sans-serif;
+  font-size: 13px;
+}
+.points-table thead th {
+  text-align: left;
+  padding: 8px 10px;
+  background: #f5f7fa;
+  color: #555;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  border-bottom: 2px solid #e0e0e0;
+}
+.points-table tbody td {
+  padding: 6px 10px;
+  border-bottom: 1px solid #eee;
+}
+.points-table input {
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-family: 'Times New Roman', serif;
+  font-size: 13px;
+}
+.points-table input:focus { outline: none; border-color: #4a90e2; }
+.col-color { width: 30px; }
+.col-p, .col-w { width: 150px; }
+.col-calc { color: #777; font-style: italic; font-family: 'Times New Roman', serif; }
+.col-del { width: 60px; text-align: right; }
+.color-swatch {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.2);
+}
+.delta-pos { color: #2e7d32; }
+.delta-neg { color: #c62828; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="title">F–P Droop Characteristic — 可編輯參數即時更新</div>
+  <div class="stack">
+
+    <!-- ROW 1: Graph -->
+    <div class="graph-wrap">
+      <div class="graph-toolbar">
+        <button class="btn btn-add" id="download-svg" style="background:#8e44ad">💾 下載 SVG</button>
+      </div>
+      <canvas id="gc" width="900" height="560"></canvas>
+    </div>
+
+    <!-- ROW 2: Formula + Params/Verify -->
+    <div class="row2">
+
+      <!-- Formula display -->
+      <div class="col-left">
+        <div class="formula-block">
+          <div class="block-label">斜率公式 (Droop Slope)</div>
+          <div class="formula-row" id="formula"></div>
+          <div class="arrow-down">↓</div>
+          <div class="m-result" id="mresult"></div>
+        </div>
+      </div>
+
+      <div class="col-right">
+      <!-- Parameters -->
+      <div class="params-block">
+        <div class="block-label">輸入參數</div>
+        <div class="param-grid">
+
+          <div class="param-item">
+            <label>標稱頻率 f<sub>0</sub></label>
+            <div class="param-row">
+              <input type="number" id="f0" value="60" min="1" step="0.1">
+              <span class="unit">Hz</span>
+            </div>
+          </div>
+
+          <div class="param-item">
+            <label>最低頻率 f<sub>min</sub> <span style="color:red">★</span></label>
+            <div class="param-row">
+              <input type="number" id="fmin" value="59.5" min="1" step="0.1" class="red-border">
+              <span class="unit">Hz</span>
+            </div>
+          </div>
+
+          <div class="param-item">
+            <label>最大有功功率 P<sub>max</sub></label>
+            <div class="param-row">
+              <input type="number" id="pmax" value="100" min="1" step="1">
+              <span class="unit">kW</span>
+            </div>
+          </div>
+
+          <div class="param-item">
+            <label>參考有功功率 P<sub>ref</sub></label>
+            <div class="param-row">
+              <input type="number" id="pref" value="0" step="1">
+              <span class="unit">kW</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Verify point -->
+      <div class="verify-box">
+        <strong>驗證點:</strong> P = 50 kW<br>
+        <span id="wcheck"></span>
+      </div>
+      </div>
+
+    </div>
+
+  <!-- Data points panel -->
+  <div class="points-panel">
+    <div class="points-header">
+      <h3>📍 量測資料點</h3>
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <label style="font-family:Arial,sans-serif; font-size:12px; color:#555; display:inline-flex; align-items:center; gap:5px;">
+          <input type="checkbox" id="show-labels"> 顯示標籤
+        </label>
+        <label style="font-family:Arial,sans-serif; font-size:12px; color:#555;">ω 單位:
+          <select id="w-unit" style="margin-left:6px; padding:4px 8px; border:1px solid #ccc; border-radius:4px; font-family:Arial,sans-serif; font-size:12px;">
+            <option value="rad_s">rad/s</option>
+            <option value="Hz">Hz</option>
+          </select>
+        </label>
+        <button class="btn btn-add" id="add-point" style="background:#7f8c8d">+ 手動新增</button>
+        <button class="btn btn-add" id="download-template" style="background:#27ae60">📄 下載範本</button>
+        <button class="btn btn-add" id="import-excel">📥 匯入 Excel</button>
+        <input type="file" id="excel-file" accept=".xlsx,.xls,.csv" style="display:none">
+      </div>
+    </div>
+    <table class="points-table">
+      <thead>
+        <tr>
+          <th class="col-color"></th>
+          <th class="col-p">P (kW)</th>
+          <th class="col-w" id="w-col-header">ω (rad/s)</th>
+          <th>理論值 / 偏差</th>
+          <th class="col-del"></th>
+        </tr>
+      </thead>
+      <tbody id="points-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const TWO_PI = 2 * Math.PI;
+
+// ─── params & compute ───────────────────────────────────────────────────────
+function params() {
+  return {
+    f0    : +document.getElementById('f0').value    || 60,
+    fmin  : +document.getElementById('fmin').value  || 59.5,
+    pmaxK : +document.getElementById('pmax').value  || 100,
+    prefK : +document.getElementById('pref').value  || 0,
+  };
+}
+
+function compute(p) {
+  const w0   = TWO_PI * p.f0;
+  const wmin = TWO_PI * p.fmin;
+  const wmax = 2 * w0 - wmin;          // symmetric about ω₀
+  const fmax = 2 * p.f0 - p.fmin;
+  const pmax = p.pmaxK * 1000;
+  const pref = p.prefK * 1000;
+  const m    = (w0 - wmin) / (pmax - pref);
+  return { w0, wmin, wmax, fmax, pmax, pref, m };
+}
+
+// ─── unit helpers ────────────────────────────────────────────────────────────
+let wUnit = 'rad_s';   // 'rad_s' or 'Hz'
+let showLabels = false;
+let dataPoints = [];
+let nextId = 1;
+const POINT_COLOR = '#1a6fb5';
+
+function toRadS(val) {
+  return wUnit === 'Hz' ? TWO_PI * val : val;
+}
+function fromRadS(w) {
+  return wUnit === 'Hz' ? w / TWO_PI : w;
+}
+
+// ─── Formula render ─────────────────────────────────────────────────────────
+function renderFormula(p, c) {
+  const { f0, fmin, pmaxK, prefK } = p;
+  const { m } = c;
+
+  document.getElementById('formula').innerHTML = `
+    <i>m</i>&nbsp;=&nbsp;
+    <span class="frac">
+      <span class="num">ω<sub>0</sub> − ω<sub>min</sub></span>
+      <span class="den">P<sub>max</sub> − P<sub>ref</sub></span>
+    </span>
+    &nbsp;=&nbsp;
+    <span class="frac">
+      <span class="num">2π × (${f0} − <span class="red-box">${fmin}</span>)</span>
+      <span class="den">${pmaxK}k − ${prefK}k</span>
+    </span>
+  `;
+
+  document.getElementById('mresult').innerHTML =
+    `<i>m</i> &cong; ${m.toExponential(2)} #`;
+
+  // Verify P=50kW
+  const pTest = 50000;
+  const { w0, pref } = c;
+  const wAt = w0 - m * (pTest - pref);
+  const fAt = wAt / TWO_PI;
+  document.getElementById('wcheck').innerHTML =
+    `計算: ω(50 kW) = ${wAt.toFixed(2)} rad/s，f = ${fAt.toFixed(3)} Hz`;
+}
+
+// ─── Graph ───────────────────────────────────────────────────────────────────
+const BASELINE = { pLo: -150000, pHi: 150000, wLo: 370, wHi: 385 };
+let currentFrame = null;
+
+function computeFrame(p, c) {
+  let pLo = BASELINE.pLo, pHi = BASELINE.pHi;
+  let wLo = BASELINE.wLo, wHi = BASELINE.wHi;
+
+  const wAtPmin = c.w0 - c.m * (-c.pmax - c.pref);
+  const wAtPmax = c.w0 - c.m * ( c.pmax - c.pref);
+  [-c.pmax, c.pmax, c.pref].forEach(q => { if (q < pLo) pLo = q; if (q > pHi) pHi = q; });
+  [c.wmin, c.w0, c.wmax, wAtPmin, wAtPmax].forEach(v => { if (v < wLo) wLo = v; if (v > wHi) wHi = v; });
+
+  dataPoints.forEach(pt => {
+    const pW = (+pt.p) * 1000;
+    const wV = toRadS(+pt.w);
+    if (pW < pLo) pLo = pW; if (pW > pHi) pHi = pW;
+    if (wV < wLo) wLo = wV; if (wV > wHi) wHi = wV;
+  });
+
+  const pPad = (pHi - pLo) * 0.08 || 1;
+  const wPad = (wHi - wLo) * 0.08 || 1;
+  return { pLo: pLo - pPad, pHi: pHi + pPad, wLo: wLo - wPad, wHi: wHi + wPad };
+}
+
+function drawGraph(p, c) {
+  const cv = document.getElementById('gc');
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const { w0, wmin, wmax, fmax, pmax, pref, m } = c;
+  const ml = 95, mr = 45, mt = 50, mb = 72;
+  const pw = W - ml - mr, ph = H - mt - mb;
+
+  const frame = computeFrame(p, c);
+  currentFrame = frame;
+  const { pLo, pHi, wLo, wHi } = frame;
+
+  const txRaw = q => ml + (q - pLo) / (pHi - pLo) * pw;
+  const tyRaw = v => mt + (1 - (v - wLo) / (wHi - wLo)) * ph;
+  const clamp  = (val, lo, hi) => Math.max(lo, Math.min(hi, val));
+  const tx = q => clamp(txRaw(q), ml, ml + pw);
+  const ty = v => clamp(tyRaw(v), mt, mt + ph);
+  const xAx = tyRaw(wLo + (wHi - wLo) * 0.08);
+
+  const clipPlot = () => {
+    ctx.beginPath();
+    ctx.rect(ml, mt, pw, ph);
+    ctx.clip();
+  };
+
+  // operating region
+  ctx.save();
+  clipPlot();
+  ctx.fillStyle = 'rgba(255,185,120,0.22)';
+  ctx.fillRect(tx(-pmax), ty(wmax), tx(pmax) - tx(-pmax), ty(wmin) - ty(wmax));
+  ctx.setLineDash([7, 4]);
+  ctx.strokeStyle = 'rgba(210,120,40,0.75)';
+  ctx.lineWidth = 1.4;
+  ctx.strokeRect(tx(-pmax), ty(wmax), tx(pmax) - tx(-pmax), ty(wmin) - ty(wmax));
+  ctx.restore();
+
+  ctx.font = '12px Arial';
+  ctx.fillStyle = 'rgba(180,90,20,.85)';
+  ctx.textAlign = 'center';
+  const olx = tx(pmax * 0.52), oly = ty((w0 + wmax) / 2) - 6;
+  ctx.fillText('Operating', olx, oly);
+  ctx.fillText('region',    olx, oly + 16);
+
+  // axes
+  ctx.strokeStyle = '#222';
+  ctx.lineWidth = 1.8;
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#222';
+
+  const yax = tx(0);
+  ctx.beginPath();
+  ctx.moveTo(yax, mt + ph + 14);
+  ctx.lineTo(yax, mt - 18);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(yax - 5, mt - 13);
+  ctx.lineTo(yax, mt - 22);
+  ctx.lineTo(yax + 5, mt - 13);
+  ctx.closePath(); ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(ml - 16, xAx);
+  ctx.lineTo(ml + pw + 18, xAx);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(ml + pw + 13, xAx - 5);
+  ctx.lineTo(ml + pw + 22, xAx);
+  ctx.lineTo(ml + pw + 13, xAx + 5);
+  ctx.closePath(); ctx.fill();
+
+  // axis labels
+  ctx.font = 'italic 14px Times New Roman';
+  ctx.textAlign = 'center';
+  ctx.fillText('ω  (rad/s)', yax, mt - 28);
+  ctx.fillText('P (W)', ml + pw + 28, xAx + 18);
+
+  // droop line
+  const wAtPminEnd = w0 - m * (-pmax - pref);
+  const wAtPmaxEnd = w0 - m * ( pmax - pref);
+  ctx.save();
+  clipPlot();
+  ctx.strokeStyle = '#111';
+  ctx.lineWidth = 2.2;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(txRaw(-pmax), tyRaw(wAtPminEnd));
+  ctx.lineTo(txRaw( pmax), tyRaw(wAtPmaxEnd));
+  ctx.stroke();
+  ctx.restore();
+
+  // key dots
+  function dot(pv, wv, color, r) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(tx(pv), ty(wv), r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  dot(-pmax, wAtPminEnd, 'red', 6);
+  dot( pmax, wAtPmaxEnd, 'red', 6);
+  dot(  pref, w0,        '#111', 6);
+
+  // text labels
+  function label2(t1, t2, x, y, c1, align) {
+    ctx.textAlign = align || 'left';
+    ctx.fillStyle = c1 || 'red';
+    ctx.font = '11px Times New Roman';
+    ctx.fillText(t1, x, y);
+    ctx.fillStyle = '#555';
+    ctx.fillText(t2, x, y + 13);
+  }
+
+  label2(
+    `ω_max = ${wAtPminEnd.toFixed(2)} rad/s`,
+    `(${(wAtPminEnd / TWO_PI).toFixed(1)} Hz)`,
+    yax + 7, ty(wmax) - 8, 'red'
+  );
+  label2(
+    `ω₀ = ${w0.toFixed(2)} rad/s`,
+    `(${(w0 / TWO_PI).toFixed(1)} Hz)`,
+    yax + 7, ty(w0) - 8, '#222'
+  );
+  label2(
+    `ω_min = ${wAtPmaxEnd.toFixed(2)} rad/s`,
+    `(${(wAtPmaxEnd / TWO_PI).toFixed(1)} Hz)`,
+    yax + 7, ty(wmin) - 8, 'red'
+  );
+
+  // x-axis tick labels
+  ctx.fillStyle = '#333';
+  ctx.font = '11px Times New Roman';
+  ctx.textAlign = 'center';
+  ctx.fillText(`−P_max = −${p.pmaxK} kW`, tx(-pmax), xAx + 20);
+  ctx.fillText(`P_ref = ${p.prefK}kW`,     tx(pref),  xAx + 20);
+  ctx.fillText(`P_max = ${p.pmaxK} kW`,    tx(pmax),  xAx + 20);
+
+  ctx.fillStyle = 'red';
+  ctx.textAlign = 'left';
+  ctx.font = '11px Arial';
+  ctx.fillText(`m = ${m.toExponential(2)}`, tx(pmax) + 8, ty(wAtPmaxEnd) + 5);
+
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 1.2;
+  [wmax, w0, wmin].forEach(v => {
+    ctx.beginPath();
+    ctx.moveTo(yax - 5, ty(v));
+    ctx.lineTo(yax + 5, ty(v));
+    ctx.stroke();
+  });
+  [-pmax, pref, pmax].forEach(q => {
+    ctx.beginPath();
+    ctx.moveTo(tx(q), xAx - 4);
+    ctx.lineTo(tx(q), xAx + 4);
+    ctx.stroke();
+  });
+}
+
+// ─── Data points ─────────────────────────────────────────────────────────────
+function renderPoints(p, c) {
+  const tbody = document.getElementById('points-body');
+  tbody.innerHTML = dataPoints.map((pt, i) => {
+    const pW = (+pt.p) * 1000;
+    const wTheo = c.w0 - c.m * (pW - c.pref);
+    const fTheo = wTheo / TWO_PI;
+    const measVal = toRadS(+pt.w);
+    const dw = measVal - wTheo;
+    const dwClass = Math.abs(dw) < 0.01 ? '' : (dw > 0 ? 'delta-pos' : 'delta-neg');
+    const dwSign  = dw > 0 ? '+' : '';
+    const unitLabel = wUnit === 'Hz' ? 'Hz' : 'rad/s';
+    return `
+      <tr data-id="${pt.id}">
+        <td><div class="color-swatch" style="background:${POINT_COLOR}"></div></td>
+        <td><input type="number" class="pt-p" value="${pt.p}" step="1"></td>
+        <td><input type="number" class="pt-w" value="${pt.w}" step="0.01"></td>
+        <td class="col-calc">理論: ω = ${wTheo.toFixed(3)} rad/s / f = ${fTheo.toFixed(4)} Hz
+            &nbsp;<span class="${dwClass}">(Δ${unitLabel} = ${dwSign}${dw.toFixed(4)})</span></td>
+        <td class="col-del"><button class="btn btn-del" data-act="del">刪除</button></td>
+      </tr>
+    `;
+  }).join('');
+
+  tbody.querySelectorAll('tr').forEach(tr => {
+    const id = +tr.dataset.id;
+    tr.querySelector('.pt-p').addEventListener('input', e => {
+      dataPoints.find(x => x.id === id).p = +e.target.value || 0;
+      update();
+    });
+    tr.querySelector('.pt-w').addEventListener('input', e => {
+      dataPoints.find(x => x.id === id).w = +e.target.value || 0;
+      update();
+    });
+    tr.querySelector('[data-act="del"]').addEventListener('click', () => {
+      dataPoints = dataPoints.filter(x => x.id !== id);
+      update();
+    });
+  });
+}
+
+function drawDataPoints(p, c) {
+  const cv = document.getElementById('gc');
+  const ctx = cv.getContext('2d');
+  const ml = 95, mr = 45, mt = 50, mb = 72;
+  const pw = cv.width - ml - mr, ph = cv.height - mt - mb;
+  if (!currentFrame) return;
+  const { pLo, pHi, wLo, wHi } = currentFrame;
+  const txRaw = q => ml + (q - pLo) / (pHi - pLo) * pw;
+  const tyRaw = v => mt + (1 - (v - wLo) / (wHi - wLo)) * ph;
+
+  dataPoints.forEach(pt => {
+    const pW  = (+pt.p) * 1000;
+    const wV  = toRadS(+pt.w);
+    const sx  = txRaw(pW), sy = tyRaw(wV);
+
+    const ctx2 = cv.getContext('2d');
+    ctx2.save();
+    ctx2.setLineDash([3, 3]);
+    ctx2.strokeStyle = POINT_COLOR + '88';
+    ctx2.lineWidth = 1;
+    ctx2.beginPath();
+    ctx2.moveTo(sx, tyRaw(wLo + (wHi - wLo) * 0.08)); ctx2.lineTo(sx, sy);
+    ctx2.moveTo(ml, sy); ctx2.lineTo(sx, sy);
+    ctx2.stroke();
+    ctx2.restore();
+
+    ctx2.save();
+    ctx2.translate(sx, sy);
+    ctx2.rotate(Math.PI / 4);
+    ctx2.fillStyle = POINT_COLOR;
+    ctx2.strokeStyle = '#fff';
+    ctx2.lineWidth = 1.5;
+    ctx2.fillRect(-6, -6, 12, 12);
+    ctx2.strokeRect(-6, -6, 12, 12);
+    ctx2.restore();
+
+    if (showLabels) {
+      ctx2.fillStyle = POINT_COLOR;
+      ctx2.font = 'bold 11px Arial';
+      ctx2.textAlign = 'left';
+      ctx2.fillText(`(${pt.p}k, ${pt.w} ${wUnit === 'Hz' ? 'Hz' : 'rad/s'})`, sx + 9, sy - 8);
+    }
+  });
+}
+
+// ─── SVG export ──────────────────────────────────────────────────────────────
+function buildSVG(p, c) {
+  const W = 900, H = 560;
+  const { w0, wmin, wmax, pmax, pref, m } = c;
+  const ml = 95, mr = 45, mt = 50, mb = 72;
+  const pw = W - ml - mr, ph = H - mt - mb;
+  const frame = currentFrame || computeFrame(p, c);
+  const { pLo, pHi, wLo, wHi } = frame;
+
+  const f  = n => n.toFixed(2);
+  const tx = q => ml + (q - pLo) / (pHi - pLo) * pw;
+  const ty = v => mt + (1 - (v - wLo) / (wHi - wLo)) * ph;
+  const xAx = ty(wLo + (wHi - wLo) * 0.08);
+  const yax = tx(0);
+
+  const wAtPmin = w0 - m * (-pmax - pref);
+  const wAtPmax = w0 - m * ( pmax - pref);
+  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" font-family="Times New Roman">\n`;
+  svg += `<rect width="${W}" height="${H}" fill="white"/>\n`;
+
+  // operating region
+  svg += `<rect x="${f(tx(-pmax))}" y="${f(ty(wmax))}" width="${f(tx(pmax)-tx(-pmax))}" height="${f(ty(wmin)-ty(wmax))}" fill="rgba(255,185,120,0.22)" stroke="rgba(210,120,40,0.75)" stroke-width="1.4" stroke-dasharray="7,4"/>\n`;
+  svg += `<text x="${f(tx(pmax*0.52))}" y="${f(ty((w0+wmax)/2)-6)}" font-family="Arial" font-size="12" fill="rgba(180,90,20,0.85)" text-anchor="middle">Operating</text>\n`;
+  svg += `<text x="${f(tx(pmax*0.52))}" y="${f(ty((w0+wmax)/2)+10)}" font-family="Arial" font-size="12" fill="rgba(180,90,20,0.85)" text-anchor="middle">region</text>\n`;
+
+  // axes
+  svg += `<line x1="${f(yax)}" y1="${f(mt+ph+14)}" x2="${f(yax)}" y2="${f(mt-18)}" stroke="#222" stroke-width="1.8"/>\n`;
+  svg += `<polygon points="${f(yax-5)},${f(mt-13)} ${f(yax)},${f(mt-22)} ${f(yax+5)},${f(mt-13)}" fill="#222"/>\n`;
+  svg += `<line x1="${f(ml-16)}" y1="${f(xAx)}" x2="${f(ml+pw+18)}" y2="${f(xAx)}" stroke="#222" stroke-width="1.8"/>\n`;
+  svg += `<polygon points="${f(ml+pw+13)},${f(xAx-5)} ${f(ml+pw+22)},${f(xAx)} ${f(ml+pw+13)},${f(xAx+5)}" fill="#222"/>\n`;
+  svg += `<text x="${f(yax)}" y="${f(mt-28)}" font-size="14" font-style="italic" text-anchor="middle" fill="#222">ω  (rad/s)</text>\n`;
+  svg += `<text x="${f(ml+pw+28)}" y="${f(xAx+18)}" font-size="14" font-style="italic" text-anchor="middle" fill="#222">P (W)</text>\n`;
+
+  // droop line
+  svg += `<line x1="${f(tx(-pmax))}" y1="${f(ty(wAtPmin))}" x2="${f(tx(pmax))}" y2="${f(ty(wAtPmax))}" stroke="#111" stroke-width="2.2"/>\n`;
+
+  // dots
+  svg += `<circle cx="${f(tx(-pmax))}" cy="${f(ty(wAtPmin))}" r="6" fill="red"/>\n`;
+  svg += `<circle cx="${f(tx(pmax))}"  cy="${f(ty(wAtPmax))}" r="6" fill="red"/>\n`;
+  svg += `<circle cx="${f(tx(pref))}"  cy="${f(ty(w0))}"      r="6" fill="#111"/>\n`;
+
+  // labels
+  const lbl = (t1, t2, x, y, c1) => {
+    svg += `<text x="${f(x)}" y="${f(y)}" font-size="11" fill="${c1||'red'}">${esc(t1)}</text>\n`;
+    svg += `<text x="${f(x)}" y="${f(y+13)}" font-size="11" fill="#555">${esc(t2)}</text>\n`;
+  };
+  lbl(`ω_max = ${wAtPmin.toFixed(2)} rad/s`, `(${(wAtPmin/TWO_PI).toFixed(1)} Hz)`, yax+7, ty(wmax)-8, 'red');
+  lbl(`ω₀ = ${w0.toFixed(2)} rad/s`,         `(${(w0/TWO_PI).toFixed(1)} Hz)`,      yax+7, ty(w0)-8, '#222');
+  lbl(`ω_min = ${wAtPmax.toFixed(2)} rad/s`, `(${(wAtPmax/TWO_PI).toFixed(1)} Hz)`, yax+7, ty(wmin)-8, 'red');
+
+  svg += `<text x="${f(tx(-pmax))}" y="${f(xAx+20)}" font-size="11" text-anchor="middle" fill="#333">−P_max = −${p.pmaxK} kW</text>\n`;
+  svg += `<text x="${f(tx(pref))}"  y="${f(xAx+20)}" font-size="11" text-anchor="middle" fill="#333">P_ref = ${p.prefK}kW</text>\n`;
+  svg += `<text x="${f(tx(pmax))}"  y="${f(xAx+20)}" font-size="11" text-anchor="middle" fill="#333">P_max = ${p.pmaxK} kW</text>\n`;
+  svg += `<text x="${f(tx(pmax)+8)}" y="${f(ty(wAtPmax)+5)}" font-size="11" fill="red">m = ${m.toExponential(2)}</text>\n`;
+
+  // ticks
+  [wmax, w0, wmin].forEach(v => {
+    svg += `<line x1="${f(yax-5)}" y1="${f(ty(v))}" x2="${f(yax+5)}" y2="${f(ty(v))}" stroke="#333" stroke-width="1.2"/>\n`;
+  });
+  [-pmax, pref, pmax].forEach(q => {
+    svg += `<line x1="${f(tx(q))}" y1="${f(xAx-4)}" x2="${f(tx(q))}" y2="${f(xAx+4)}" stroke="#333" stroke-width="1.2"/>\n`;
+  });
+
+  // data points
+  dataPoints.forEach(pt => {
+    const pW = (+pt.p) * 1000;
+    const wV = toRadS(+pt.w);
+    const sx = tx(pW), sy = ty(wV);
+    const r  = 8.485;
+    svg += `<path d="M ${f(sx)} ${f(sy-r)} L ${f(sx+r)} ${f(sy)} L ${f(sx)} ${f(sy+r)} L ${f(sx-r)} ${f(sy)} Z" fill="${POINT_COLOR}" stroke="#fff" stroke-width="1.5"/>\n`;
+    if (showLabels) {
+      svg += `<text x="${f(sx+9)}" y="${f(sy-8)}" font-family="Arial" font-size="11" font-weight="bold" fill="${POINT_COLOR}">(${esc(pt.p)}k, ${esc(pt.w)} ${esc(wUnit==='Hz'?'Hz':'rad/s')})</text>\n`;
+    }
+  });
+
+  svg += `</svg>\n`;
+  return svg;
+}
+
+function downloadSVG() {
+  const p = params();
+  const c = compute(p);
+  drawGraph(p, c);
+  const blob = new Blob([buildSVG(p, c)], {type: 'image/svg+xml'});
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), {href: url, download: 'fp_droop.svg'});
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ─── main update ─────────────────────────────────────────────────────────────
+function update() {
+  const p = params();
+  const c = compute(p);
+  renderFormula(p, c);
+  drawGraph(p, c);
+  drawDataPoints(p, c);
+  renderPoints(p, c);
+}
+
+// ─── events ──────────────────────────────────────────────────────────────────
+document.getElementById('add-point').addEventListener('click', () => {
+  const c = compute(params());
+  dataPoints.push({ id: nextId++, p: 0, w: +(fromRadS(c.w0).toFixed(4)) });
+  update();
+});
+
+document.getElementById('download-template').addEventListener('click', () => {
+  const ws_data = [
+    ['F-P Droop 量測資料匯入範本'],
+    ['說明: 填入 P (kW) 與 ω；單位欄填 rad_s 或 Hz，留空則沿用網頁目前單位'],
+    [],
+    ['P (kW)', 'ω 值', '單位 (rad_s 或 Hz)'],
+    [50,  375.43, 'rad_s'],
+    [-50, 378.57, 'rad_s'],
+    [30,  376.05, 'rad_s'],
+    [0,   60,     'Hz'],
+    [80,  374.68, 'rad_s'],
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(ws_data);
+  ws['!cols'] = [{wch:12},{wch:14},{wch:24}];
+  ws['!merges'] = [
+    {s:{r:0,c:0},e:{r:0,c:2}},
+    {s:{r:1,c:0},e:{r:1,c:2}},
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '量測資料');
+  XLSX.writeFile(wb, 'fp_droop_template.xlsx');
+});
+
+document.getElementById('import-excel').addEventListener('click', () => {
+  document.getElementById('excel-file').click();
+});
+
+document.getElementById('excel-file').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const buf = await file.arrayBuffer();
+    const wb  = XLSX.read(buf, {type: 'array'});
+    const ws  = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, {header: 1, defval: ''});
+
+    let hdrIdx = rows.findIndex(r => typeof r[0] === 'string' && /^P/i.test(r[0].trim()));
+    if (hdrIdx < 0) hdrIdx = -1;
+
+    const dataRows = rows.slice(hdrIdx + 1)
+      .filter(r => r[0] !== '' && r[0] !== undefined && !isNaN(+r[0]));
+
+    if (dataRows.length === 0) {
+      alert('找不到有效資料列。請確認格式：第一欄 P (kW)、第二欄 ω 值、第三欄 單位 (rad_s 或 Hz，可選)。');
+      return;
+    }
+
+    const c = compute(params());
+    const imported = dataRows.map(r => {
+      const rawUnit = (r[2] || '').toString().trim().toLowerCase().replace(/[^a-z_]/g, '');
+      const unit = rawUnit === 'hz' ? 'Hz' : 'rad_s';
+      const wRaw = +r[1];
+      // store in current wUnit
+      let wStored;
+      if (unit === 'Hz' && wUnit === 'rad_s') wStored = TWO_PI * wRaw;
+      else if (unit === 'rad_s' && wUnit === 'Hz') wStored = wRaw / TWO_PI;
+      else wStored = wRaw;
+      return { id: nextId++, p: +r[0], w: +wStored.toFixed(4) };
+    }).filter(pt => !isNaN(pt.p) && !isNaN(pt.w));
+
+    dataPoints = imported;
+    update();
+    alert(`✅ 成功匯入 ${dataPoints.length} 筆資料點`);
+  } catch (err) {
+    console.error(err);
+    alert('匯入失敗: ' + err.message);
+  } finally {
+    e.target.value = '';
+  }
+});
+
+document.getElementById('show-labels').addEventListener('change', e => {
+  showLabels = e.target.checked;
+  update();
+});
+
+document.getElementById('download-svg').addEventListener('click', downloadSVG);
+
+document.getElementById('w-unit').addEventListener('change', e => {
+  const prev = wUnit;
+  wUnit = e.target.value;
+  document.getElementById('w-col-header').innerHTML =
+    wUnit === 'Hz' ? 'f (Hz)' : 'ω (rad/s)';
+  // convert existing point values
+  dataPoints.forEach(pt => {
+    if (prev === 'rad_s' && wUnit === 'Hz') pt.w = +(pt.w / TWO_PI).toFixed(4);
+    else if (prev === 'Hz' && wUnit === 'rad_s') pt.w = +(pt.w * TWO_PI).toFixed(4);
+  });
+  update();
+});
+
+document.querySelectorAll('.param-row input').forEach(el =>
+  el.addEventListener('input', update));
+update();
+</script>
+</body>
+</html>
