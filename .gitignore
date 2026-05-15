@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+venv/
+.venv/
+
+# Java
+*.class
+*.jar
+out/
+
+# C / C++
+*.o
+*.out
+a.out
+
+# 編輯器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 系統
+.DS_Store
+Thumbs.db
