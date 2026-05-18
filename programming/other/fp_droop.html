@@ -785,6 +785,12 @@ function buildSVG(p, c) {
     const wV = toRadS(+pt.w);
     const sx = tx(pW), sy = ty(wV);
     const r  = 8.485;
+    if (showGuides) {
+      const dashP = `stroke="${POINT_COLOR}" stroke-opacity="0.53" stroke-width="1" stroke-dasharray="3,3"`;
+      const yBase = ty(wLo + (wHi - wLo) * 0.08);
+      svg += `<line x1="${f(sx)}" y1="${f(yBase)}" x2="${f(sx)}" y2="${f(sy)}" ${dashP}/>\n`;
+      svg += `<line x1="${ml}" y1="${f(sy)}" x2="${f(sx)}" y2="${f(sy)}" ${dashP}/>\n`;
+    }
     svg += `<path d="M ${f(sx)} ${f(sy-r)} L ${f(sx+r)} ${f(sy)} L ${f(sx)} ${f(sy+r)} L ${f(sx-r)} ${f(sy)} Z" fill="${POINT_COLOR}"/>\n`;
     if (showLabels) {
       svg += `<text x="${f(sx+9)}" y="${f(sy-8)}" font-family="Arial" font-size="11" font-weight="bold" fill="${POINT_COLOR}">(${esc(pt.p)}k, ${esc(pt.w)} ${esc(wUnit==='Hz'?'Hz':'rad/s')})</text>\n`;

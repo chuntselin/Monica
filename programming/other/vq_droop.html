@@ -896,10 +896,12 @@ function buildSVG(p, c) {
     const sx = txRaw(qW), sy = tyRaw(vLN);
 
     // dashed guide lines
-    const dashP = `stroke="${ptColor}" stroke-opacity="0.53" stroke-width="1" stroke-dasharray="3,3"`;
-    const yBase = tyRaw(vLo + (vHi - vLo) * 0.08);
-    svg += `<line x1="${f(sx)}" y1="${f(yBase)}" x2="${f(sx)}" y2="${f(sy)}" ${dashP}/>\n`;
-    svg += `<line x1="${ml}" y1="${f(sy)}" x2="${f(sx)}" y2="${f(sy)}" ${dashP}/>\n`;
+    if (showGuides) {
+      const dashP = `stroke="${ptColor}" stroke-opacity="0.53" stroke-width="1" stroke-dasharray="3,3"`;
+      const yBase = tyRaw(vLo + (vHi - vLo) * 0.08);
+      svg += `<line x1="${f(sx)}" y1="${f(yBase)}" x2="${f(sx)}" y2="${f(sy)}" ${dashP}/>\n`;
+      svg += `<line x1="${ml}" y1="${f(sy)}" x2="${f(sx)}" y2="${f(sy)}" ${dashP}/>\n`;
+    }
 
     // diamond (rotated square)
     svg += `<path d="M ${f(sx)} ${f(sy-8.485)} L ${f(sx+8.485)} ${f(sy)} L ${f(sx)} ${f(sy+8.485)} L ${f(sx-8.485)} ${f(sy)} Z" fill="${ptColor}"/>\n`;
