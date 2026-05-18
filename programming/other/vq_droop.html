@@ -350,6 +350,9 @@ canvas { display: block; border: 1px solid #ddd; border-radius: 4px; max-width: 
         <label style="font-family:Arial,sans-serif; font-size:12px; color:#555; display:inline-flex; align-items:center; gap:5px;">
           <input type="checkbox" id="show-labels"> 顯示標籤
         </label>
+        <label style="font-family:Arial,sans-serif; font-size:12px; color:#555; display:inline-flex; align-items:center; gap:5px;">
+          <input type="checkbox" id="show-guides"> 顯示導引線
+        </label>
         <label style="font-family:Arial,sans-serif; font-size:12px; color:#555;">V 單位:
           <select id="v-unit" style="margin-left:6px; padding:4px 8px; border:1px solid #ccc; border-radius:4px; font-family:Arial,sans-serif; font-size:12px;">
             <option value="V_LN">V_LN (相電壓)</option>
@@ -689,6 +692,7 @@ let dataPoints = [
 let nextId = 3;
 let vUnit = 'V_LN';
 let showLabels = false;
+let showGuides = false;
 
 // Convert a data point's V input to V_LN based on the current unit selection.
 function ptVLN(pt) {
@@ -758,25 +762,24 @@ function drawDataPoints(p, c) {
     const sx = txRaw(qW), sy = tyRaw(vLN);
 
     // dashed guide lines from axes to the point
-    ctx.save();
-    ctx.setLineDash([3, 3]);
-    ctx.strokeStyle = color + '88';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(sx, tyRaw(vLo + (vHi - vLo) * 0.08)); ctx.lineTo(sx, sy);
-    ctx.moveTo(ml, sy); ctx.lineTo(sx, sy);
-    ctx.stroke();
-    ctx.restore();
+    if (showGuides) {
+      ctx.save();
+      ctx.setLineDash([3, 3]);
+      ctx.strokeStyle = color + '88';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(sx, tyRaw(vLo + (vHi - vLo) * 0.08)); ctx.lineTo(sx, sy);
+      ctx.moveTo(ml, sy); ctx.lineTo(sx, sy);
+      ctx.stroke();
+      ctx.restore();
+    }
 
     // marker (filled diamond)
     ctx.save();
     ctx.translate(sx, sy);
     ctx.rotate(Math.PI / 4);
     ctx.fillStyle = color;
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 1.5;
     ctx.fillRect(-6, -6, 12, 12);
-    ctx.strokeRect(-6, -6, 12, 12);
     ctx.restore();
 
     // label (optional)
@@ -899,7 +902,7 @@ function buildSVG(p, c) {
     svg += `<line x1="${ml}" y1="${f(sy)}" x2="${f(sx)}" y2="${f(sy)}" ${dashP}/>\n`;
 
     // diamond (rotated square)
-    svg += `<path d="M ${f(sx)} ${f(sy-8.485)} L ${f(sx+8.485)} ${f(sy)} L ${f(sx)} ${f(sy+8.485)} L ${f(sx-8.485)} ${f(sy)} Z" fill="${ptColor}" stroke="#fff" stroke-width="1.5"/>\n`;
+    svg += `<path d="M ${f(sx)} ${f(sy-8.485)} L ${f(sx+8.485)} ${f(sy)} L ${f(sx)} ${f(sy+8.485)} L ${f(sx-8.485)} ${f(sy)} Z" fill="${ptColor}"/>\n`;
 
     // label
     if (showLabels) {
@@ -1048,6 +1051,11 @@ document.getElementById('excel-file').addEventListener('change', async (e) => {
 
 document.getElementById('show-labels').addEventListener('change', e => {
   showLabels = e.target.checked;
+  update();
+});
+
+document.getElementById('show-guides').addEventListener('change', e => {
+  showGuides = e.target.checked;
   update();
 });
 
