@@ -273,7 +273,12 @@ canvas { display: block; border: 1px solid #ddd; border-radius: 4px; max-width: 
 
     <!-- ROW 1: Graph -->
     <div class="graph-wrap">
-      <div class="graph-toolbar">
+      <div class="graph-toolbar" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:flex-end;">
+        <label style="font-family:Arial,sans-serif; font-size:12px; color:#555; display:inline-flex; align-items:center; gap:5px;">
+          斜線透明度:
+          <input type="range" id="droop-opacity" min="10" max="100" value="100" step="5" style="width:72px; vertical-align:middle;">
+          <span id="droop-opacity-val" style="min-width:34px;">100%</span>
+        </label>
         <button class="btn btn-add" id="download-svg" style="background:#8e44ad">💾 下載 SVG</button>
       </div>
       <canvas id="gc" width="900" height="560"></canvas>
@@ -353,6 +358,14 @@ canvas { display: block; border: 1px solid #ddd; border-radius: 4px; max-width: 
         <label style="font-family:Arial,sans-serif; font-size:12px; color:#555; display:inline-flex; align-items:center; gap:5px;">
           <input type="checkbox" id="show-guides"> 顯示導引線
         </label>
+        <label style="font-family:Arial,sans-serif; font-size:12px; color:#555;">標記樣式:
+          <select id="marker-style" style="margin-left:4px; padding:4px 8px; border:1px solid #ccc; border-radius:4px; font-family:Arial,sans-serif; font-size:12px;">
+            <option value="diamond">◆ 菱形</option>
+            <option value="x">✕ X 叉號</option>
+            <option value="circle">● 圓點</option>
+            <option value="triangle">▲ 三角形</option>
+          </select>
+        </label>
         <label style="font-family:Arial,sans-serif; font-size:12px; color:#555;">V 單位:
           <select id="v-unit" style="margin-left:6px; padding:4px 8px; border:1px solid #ccc; border-radius:4px; font-family:Arial,sans-serif; font-size:12px;">
             <option value="V_LN">V_LN (相電壓)</option>
@@ -381,6 +394,47 @@ canvas { display: block; border: 1px solid #ddd; border-radius: 4px; max-width: 
 </div>
 
 <script>
+// ─── marker helpers ─────────────────────────────────────────────────────────
+function drawMarker(ctx, sx, sy, color, size) {
+  size = size || 6;
+  ctx.fillStyle = color;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2.2;
+  if (markerStyle === 'diamond') {
+    ctx.save(); ctx.translate(sx, sy); ctx.rotate(Math.PI / 4);
+    ctx.fillRect(-size, -size, size * 2, size * 2);
+    ctx.restore();
+  } else if (markerStyle === 'x') {
+    ctx.beginPath();
+    ctx.moveTo(sx - size, sy - size); ctx.lineTo(sx + size, sy + size);
+    ctx.moveTo(sx + size, sy - size); ctx.lineTo(sx - size, sy + size);
+    ctx.stroke();
+  } else if (markerStyle === 'circle') {
+    ctx.beginPath(); ctx.arc(sx, sy, size, 0, Math.PI * 2); ctx.fill();
+  } else {
+    ctx.beginPath();
+    ctx.moveTo(sx, sy - size * 1.2);
+    ctx.lineTo(sx + size, sy + size * 0.8);
+    ctx.lineTo(sx - size, sy + size * 0.8);
+    ctx.closePath(); ctx.fill();
+  }
+}
+
+function svgMarker(f, sx, sy, color, size) {
+  size = size || 6;
+  const r = size * 1.414;
+  if (markerStyle === 'diamond') {
+    return `<path d="M ${f(sx)} ${f(sy-r)} L ${f(sx+r)} ${f(sy)} L ${f(sx)} ${f(sy+r)} L ${f(sx-r)} ${f(sy)} Z" fill="${color}"/>`;
+  } else if (markerStyle === 'x') {
+    return `<line x1="${f(sx-size)}" y1="${f(sy-size)}" x2="${f(sx+size)}" y2="${f(sy+size)}" stroke="${color}" stroke-width="2.2"/>`
+         + `<line x1="${f(sx+size)}" y1="${f(sy-size)}" x2="${f(sx-size)}" y2="${f(sy+size)}" stroke="${color}" stroke-width="2.2"/>`;
+  } else if (markerStyle === 'circle') {
+    return `<circle cx="${f(sx)}" cy="${f(sy)}" r="${size}" fill="${color}"/>`;
+  } else {
+    return `<polygon points="${f(sx)},${f(sy-size*1.2)} ${f(sx+size)},${f(sy+size*0.8)} ${f(sx-size)},${f(sy+size*0.8)}" fill="${color}"/>`;
+  }
+}
+
 // ─── helpers ───────────────────────────────────────────────────────────────
 const SQ2 = Math.sqrt(2), SQ3 = Math.sqrt(3);
 const vllFactor = SQ3 / SQ2;   // VLL = VLN × √(3/2)
@@ -599,6 +653,7 @@ function drawGraph(p, c) {
   const vAtQmax = v0 - n * ( qmax - q0);
   ctx.save();
   clipPlot();
+  ctx.globalAlpha = droopOpacity;
   ctx.strokeStyle = '#111';
   ctx.lineWidth = 2.2;
   ctx.setLineDash([]);
@@ -606,6 +661,7 @@ function drawGraph(p, c) {
   ctx.moveTo(txRaw(-qmax), tyRaw(vAtQmin));
   ctx.lineTo(txRaw( qmax), tyRaw(vAtQmax));
   ctx.stroke();
+  ctx.globalAlpha = 1.0;
   ctx.restore();
 
   // ── key dots ──────────────────────────────────────────────────────────────
@@ -693,6 +749,8 @@ let nextId = 3;
 let vUnit = 'V_LN';
 let showLabels = false;
 let showGuides = false;
+let markerStyle = 'diamond';
+let droopOpacity = 1.0;
 
 // Convert a data point's V input to V_LN based on the current unit selection.
 function ptVLN(pt) {
@@ -774,13 +832,7 @@ function drawDataPoints(p, c) {
       ctx.restore();
     }
 
-    // marker (filled diamond)
-    ctx.save();
-    ctx.translate(sx, sy);
-    ctx.rotate(Math.PI / 4);
-    ctx.fillStyle = color;
-    ctx.fillRect(-6, -6, 12, 12);
-    ctx.restore();
+    drawMarker(ctx, sx, sy, color);
 
     // label (optional)
     if (showLabels) {
@@ -855,7 +907,7 @@ function buildSVG(p, c) {
   const vAtQmin = v0 - n * (-qmax - q0);
   const vAtQmax = v0 - n * ( qmax - q0);
   svg += `<defs><clipPath id="plotClip"><rect x="${ml}" y="${mt}" width="${pw}" height="${ph}"/></clipPath></defs>\n`;
-  svg += `<line x1="${f(txRaw(-qmax))}" y1="${f(tyRaw(vAtQmin))}" x2="${f(txRaw(qmax))}" y2="${f(tyRaw(vAtQmax))}" stroke="#111" stroke-width="2.2" clip-path="url(#plotClip)"/>\n`;
+  svg += `<line x1="${f(txRaw(-qmax))}" y1="${f(tyRaw(vAtQmin))}" x2="${f(txRaw(qmax))}" y2="${f(tyRaw(vAtQmax))}" stroke="#111" stroke-width="2.2" stroke-opacity="${droopOpacity}" clip-path="url(#plotClip)"/>\n`;
 
   // Key dots
   svg += `<circle cx="${f(tx(-qmax))}" cy="${f(ty(vAtQmin))}" r="6" fill="red"/>\n`;
@@ -904,7 +956,7 @@ function buildSVG(p, c) {
     }
 
     // diamond (rotated square)
-    svg += `<path d="M ${f(sx)} ${f(sy-8.485)} L ${f(sx+8.485)} ${f(sy)} L ${f(sx)} ${f(sy+8.485)} L ${f(sx-8.485)} ${f(sy)} Z" fill="${ptColor}"/>\n`;
+    svg += svgMarker(f, sx, sy, ptColor) + '\n';
 
     // label
     if (showLabels) {
@@ -1058,6 +1110,17 @@ document.getElementById('show-labels').addEventListener('change', e => {
 
 document.getElementById('show-guides').addEventListener('change', e => {
   showGuides = e.target.checked;
+  update();
+});
+
+document.getElementById('marker-style').addEventListener('change', e => {
+  markerStyle = e.target.value;
+  update();
+});
+
+document.getElementById('droop-opacity').addEventListener('input', e => {
+  droopOpacity = e.target.value / 100;
+  document.getElementById('droop-opacity-val').textContent = e.target.value + '%';
   update();
 });
 
