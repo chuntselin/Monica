@@ -374,6 +374,7 @@ canvas { display: block; border: 1px solid #ddd; border-radius: 4px; max-width: 
         </label>
         <button class="btn btn-add" id="add-point" style="background:#7f8c8d">+ 手動新增</button>
         <button class="btn btn-add" id="download-template" style="background:#27ae60">📄 下載範本</button>
+        <button class="btn btn-add" id="export-results" style="background:#2471a3">📊 匯出結果</button>
         <button class="btn btn-add" id="import-excel">📥 匯入 Excel</button>
         <input type="file" id="excel-file" accept=".xlsx,.xls,.csv" style="display:none">
       </div>
@@ -995,6 +996,56 @@ document.getElementById('add-point').addEventListener('click', () => {
   const seedV = vUnit === 'V_LN' ? 359.26 : 440;
   dataPoints.push({ id: nextId++, q: 0, v: seedV });
   update();
+});
+
+// ─── Export results to Excel ─────────────────────────────────────────────
+document.getElementById('export-results').addEventListener('click', () => {
+  if (dataPoints.length === 0) { alert('目前沒有資料點可匯出。'); return; }
+  const p = params();
+  const c = compute(p);
+
+  const unitLabel = vUnit === 'V_LN' ? 'V_LN (Vrms)' : 'V_LL (Vrms)';
+  const theoLabel = vUnit === 'V_LN' ? 'V_LN 理論值 (Vrms)' : 'V_LL 理論值 (Vrms)';
+  const devLabel  = vUnit === 'V_LN' ? 'V_LN 偏差 (Vrms)' : 'V_LL 偏差 (Vrms)';
+
+  const header = ['Q (kVAR)', unitLabel, theoLabel, devLabel];
+  const rows = dataPoints.map(pt => {
+    const qW      = (+pt.q) * 1000;
+    const vLN_theo = c.v0 - c.n * (qW - c.q0);
+    const vLL_theo = vLN_theo * vllFactor;
+    const theo    = vUnit === 'V_LN' ? vLN_theo : vLL_theo;
+    const meas    = +pt.v;
+    const dev     = +(meas - theo).toFixed(4);
+    return [+pt.q, +meas.toFixed(4), +theo.toFixed(4), dev];
+  });
+
+  const paramRows = [
+    [`V_LL0 = ${p.vll0} V`, `Droop ratio = ${p.ratio}`, `Q_max = ${p.qmaxK} kVAR`, `Q_0 = ${p.q0K} kVAR`],
+    [`n ≅ ${c.n.toExponential(3)}`, '', '', ''],
+  ];
+
+  const ws_data = [
+    ['V-Q Droop 量測結果匯出'],
+    ...paramRows,
+    [],
+    header,
+    ...rows,
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(ws_data);
+  ws['!cols'] = [{wch:14}, {wch:18}, {wch:20}, {wch:18}];
+  ws['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:3}}];
+
+  // colour header row
+  const hdrRowIdx = paramRows.length + 2;
+  ['A','B','C','D'].forEach(col => {
+    const cell = ws[col + (hdrRowIdx + 1)];
+    if (cell) cell.s = { font: { bold: true }, fill: { fgColor: { rgb: 'D5E8D4' } } };
+  });
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '量測結果');
+  XLSX.writeFile(wb, 'vq_droop_results.xlsx');
 });
 
 // ─── Excel template download ──────────────────────────────────────────────

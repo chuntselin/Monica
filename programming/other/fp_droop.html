@@ -371,6 +371,7 @@ canvas { display: block; border: 1px solid #ddd; border-radius: 4px; max-width: 
         </label>
         <button class="btn btn-add" id="add-point" style="background:#7f8c8d">+ 手動新增</button>
         <button class="btn btn-add" id="download-template" style="background:#27ae60">📄 下載範本</button>
+        <button class="btn btn-add" id="export-results" style="background:#2471a3">📊 匯出結果</button>
         <button class="btn btn-add" id="import-excel">📥 匯入 Excel</button>
         <input type="file" id="excel-file" accept=".xlsx,.xls,.csv" style="display:none">
       </div>
@@ -880,6 +881,51 @@ document.getElementById('add-point').addEventListener('click', () => {
   const c = compute(params());
   dataPoints.push({ id: nextId++, p: 0, w: +(fromRadS(c.w0).toFixed(4)) });
   update();
+});
+
+// ─── Export results to Excel ─────────────────────────────────────────────
+document.getElementById('export-results').addEventListener('click', () => {
+  if (dataPoints.length === 0) { alert('目前沒有資料點可匯出。'); return; }
+  const p = params();
+  const c = compute(p);
+
+  const unitLabel = wUnit === 'Hz' ? 'f (Hz)' : 'ω (rad/s)';
+  const theoLabel = wUnit === 'Hz' ? 'f 理論值 (Hz)' : 'ω 理論值 (rad/s)';
+  const devLabel  = wUnit === 'Hz' ? 'f 偏差 (Hz)' : 'ω 偏差 (rad/s)';
+
+  const header = ['P (kW)', unitLabel, theoLabel, devLabel];
+  const rows = dataPoints.map(pt => {
+    const pW      = (+pt.p) * 1000;
+    const wTheo   = c.w0 - c.m * (pW - c.pref);
+    const fTheo   = wTheo / TWO_PI;
+    const theoVal = wUnit === 'Hz' ? fTheo : wTheo;
+    const measRaw = +pt.w;                          // stored in current wUnit
+    const measVal = toRadS(measRaw);                // always rad/s for calc
+    const measOut = wUnit === 'Hz' ? measVal / TWO_PI : measVal;
+    const dev     = +(measOut - theoVal).toFixed(6);
+    return [+pt.p, +measOut.toFixed(6), +theoVal.toFixed(6), dev];
+  });
+
+  const paramRows = [
+    [`f_0 = ${p.f0} Hz`, `f_min = ${p.fmin} Hz`, `P_max = ${p.pmaxK} kW`, `P_ref = ${p.prefK} kW`],
+    [`m ≅ ${c.m.toExponential(3)}`, '', '', ''],
+  ];
+
+  const ws_data = [
+    ['F-P Droop 量測結果匯出'],
+    ...paramRows,
+    [],
+    header,
+    ...rows,
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(ws_data);
+  ws['!cols'] = [{wch:12}, {wch:18}, {wch:20}, {wch:18}];
+  ws['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:3}}];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '量測結果');
+  XLSX.writeFile(wb, 'fp_droop_results.xlsx');
 });
 
 document.getElementById('download-template').addEventListener('click', () => {
