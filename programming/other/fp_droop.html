@@ -889,23 +889,19 @@ document.getElementById('export-results').addEventListener('click', () => {
   const p = params();
   const c = compute(p);
 
-  const unitLabel = wUnit === 'Hz' ? 'f (Hz)' : 'ω (rad/s)';
-  const theoLabel = wUnit === 'Hz' ? 'f 理論值 (Hz)' : 'ω 理論值 (rad/s)';
-  const devLabel    = wUnit === 'Hz' ? 'f 偏差 (Hz)' : 'ω 偏差 (rad/s)';
-  const devPctLabel = wUnit === 'Hz' ? 'f 偏差百分比 (%)' : 'ω 偏差百分比 (%)';
+  const unitLabel   = 'f (Hz)';
+  const theoLabel   = 'f 理論值 (Hz)';
+  const devLabel    = 'f 偏差 (Hz)';
+  const devPctLabel = 'f 偏差百分比 (%)';
 
   const header = ['P (kW)', unitLabel, theoLabel, devLabel, devPctLabel];
   const rows = dataPoints.map(pt => {
     const pW      = (+pt.p) * 1000;
-    const wTheo   = c.w0 - c.m * (pW - c.pref);
-    const fTheo   = wTheo / TWO_PI;
-    const theoVal = wUnit === 'Hz' ? fTheo : wTheo;
-    const measRaw = +pt.w;                          // stored in current wUnit
-    const measVal = toRadS(measRaw);                // always rad/s for calc
-    const measOut = wUnit === 'Hz' ? measVal / TWO_PI : measVal;
-    const dev     = +(measOut - theoVal).toFixed(6);
-    const devPct  = +((measOut - theoVal) / theoVal * 100).toFixed(2);
-    return [+pt.p, +measOut.toFixed(6), +theoVal.toFixed(6), dev, devPct];
+    const fTheo   = (c.w0 - c.m * (pW - c.pref)) / TWO_PI;
+    const measHz  = toRadS(+pt.w) / TWO_PI;          // 統一轉 Hz
+    const dev     = +(measHz - fTheo).toFixed(6);
+    const devPct  = +((measHz - fTheo) / fTheo * 100).toFixed(2);
+    return [+pt.p, +measHz.toFixed(6), +fTheo.toFixed(6), dev, devPct];
   });
 
   const paramRows = [
