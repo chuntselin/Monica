@@ -891,9 +891,10 @@ document.getElementById('export-results').addEventListener('click', () => {
 
   const unitLabel = wUnit === 'Hz' ? 'f (Hz)' : 'ω (rad/s)';
   const theoLabel = wUnit === 'Hz' ? 'f 理論值 (Hz)' : 'ω 理論值 (rad/s)';
-  const devLabel  = wUnit === 'Hz' ? 'f 偏差 (Hz)' : 'ω 偏差 (rad/s)';
+  const devLabel    = wUnit === 'Hz' ? 'f 偏差 (Hz)' : 'ω 偏差 (rad/s)';
+  const devPctLabel = wUnit === 'Hz' ? 'f 偏差百分比 (%)' : 'ω 偏差百分比 (%)';
 
-  const header = ['P (kW)', unitLabel, theoLabel, devLabel];
+  const header = ['P (kW)', unitLabel, theoLabel, devLabel, devPctLabel];
   const rows = dataPoints.map(pt => {
     const pW      = (+pt.p) * 1000;
     const wTheo   = c.w0 - c.m * (pW - c.pref);
@@ -903,7 +904,8 @@ document.getElementById('export-results').addEventListener('click', () => {
     const measVal = toRadS(measRaw);                // always rad/s for calc
     const measOut = wUnit === 'Hz' ? measVal / TWO_PI : measVal;
     const dev     = +(measOut - theoVal).toFixed(6);
-    return [+pt.p, +measOut.toFixed(6), +theoVal.toFixed(6), dev];
+    const devPct  = +((measOut - theoVal) / theoVal * 100).toFixed(2);
+    return [+pt.p, +measOut.toFixed(6), +theoVal.toFixed(6), dev, devPct];
   });
 
   const paramRows = [
@@ -920,8 +922,8 @@ document.getElementById('export-results').addEventListener('click', () => {
   ];
 
   const ws = XLSX.utils.aoa_to_sheet(ws_data);
-  ws['!cols'] = [{wch:12}, {wch:18}, {wch:20}, {wch:18}];
-  ws['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:3}}];
+  ws['!cols'] = [{wch:12}, {wch:18}, {wch:20}, {wch:18}, {wch:22}];
+  ws['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:4}}];
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '量測結果');

@@ -1007,8 +1007,9 @@ document.getElementById('export-results').addEventListener('click', () => {
   const unitLabel = vUnit === 'V_LN' ? 'V_LN (Vrms)' : 'V_LL (Vrms)';
   const theoLabel = vUnit === 'V_LN' ? 'V_LN 理論值 (Vrms)' : 'V_LL 理論值 (Vrms)';
   const devLabel  = vUnit === 'V_LN' ? 'V_LN 偏差 (Vrms)' : 'V_LL 偏差 (Vrms)';
+  const devPctLabel = vUnit === 'V_LN' ? 'V_LN 偏差百分比 (%)' : 'V_LL 偏差百分比 (%)';
 
-  const header = ['Q (kVAR)', unitLabel, theoLabel, devLabel];
+  const header = ['Q (kVAR)', unitLabel, theoLabel, devLabel, devPctLabel];
   const rows = dataPoints.map(pt => {
     const qW      = (+pt.q) * 1000;
     const vLN_theo = c.v0 - c.n * (qW - c.q0);
@@ -1016,7 +1017,8 @@ document.getElementById('export-results').addEventListener('click', () => {
     const theo    = vUnit === 'V_LN' ? vLN_theo : vLL_theo;
     const meas    = +pt.v;
     const dev     = +(meas - theo).toFixed(4);
-    return [+pt.q, +meas.toFixed(4), +theo.toFixed(4), dev];
+    const devPct  = +((meas - theo) / theo * 100).toFixed(2);
+    return [+pt.q, +meas.toFixed(4), +theo.toFixed(4), dev, devPct];
   });
 
   const paramRows = [
@@ -1033,8 +1035,8 @@ document.getElementById('export-results').addEventListener('click', () => {
   ];
 
   const ws = XLSX.utils.aoa_to_sheet(ws_data);
-  ws['!cols'] = [{wch:14}, {wch:18}, {wch:20}, {wch:18}];
-  ws['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:3}}];
+  ws['!cols'] = [{wch:14}, {wch:18}, {wch:20}, {wch:18}, {wch:22}];
+  ws['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:4}}];
 
   // colour header row
   const hdrRowIdx = paramRows.length + 2;
