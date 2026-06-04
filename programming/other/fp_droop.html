@@ -363,12 +363,6 @@ canvas { display: block; border: 1px solid #ddd; border-radius: 4px; max-width: 
             <option value="triangle">▲ 三角形</option>
           </select>
         </label>
-        <label style="font-family:Arial,sans-serif; font-size:12px; color:#555;">ω 單位:
-          <select id="w-unit" style="margin-left:6px; padding:4px 8px; border:1px solid #ccc; border-radius:4px; font-family:Arial,sans-serif; font-size:12px;">
-            <option value="rad_s">rad/s</option>
-            <option value="Hz">Hz</option>
-          </select>
-        </label>
         <button class="btn btn-add" id="add-point" style="background:#7f8c8d">+ 手動新增</button>
         <button class="btn btn-add" id="download-template" style="background:#27ae60">📄 下載範本</button>
         <button class="btn btn-add" id="export-results" style="background:#2471a3">📊 匯出結果</button>
@@ -381,7 +375,7 @@ canvas { display: block; border: 1px solid #ddd; border-radius: 4px; max-width: 
         <tr>
           <th class="col-color"></th>
           <th class="col-p">P (kW)</th>
-          <th class="col-w" id="w-col-header">ω (rad/s)</th>
+          <th class="col-w" id="w-col-header">f (Hz)</th>
           <th>理論值 / 偏差</th>
           <th class="col-del"></th>
         </tr>
@@ -457,7 +451,7 @@ function compute(p) {
 }
 
 // ─── unit helpers ────────────────────────────────────────────────────────────
-let wUnit = 'rad_s';   // 'rad_s' or 'Hz'
+let wUnit = 'Hz';
 let showLabels = false;
 let showGuides = false;
 let markerStyle = 'diamond';
@@ -500,7 +494,7 @@ function renderFormula(p, c) {
   const wAt = w0 - m * (pTest - pref);
   const fAt = wAt / TWO_PI;
   document.getElementById('wcheck').innerHTML =
-    `計算: ω(50 kW) = ${wAt.toFixed(2)} rad/s，f = ${fAt.toFixed(3)} Hz`;
+    `計算: f(50 kW) = ${fAt.toFixed(3)} Hz`;
 }
 
 // ─── Graph ───────────────────────────────────────────────────────────────────
@@ -603,7 +597,7 @@ function drawGraph(p, c) {
   // axis labels
   ctx.font = 'italic 14px Times New Roman';
   ctx.textAlign = 'center';
-  ctx.fillText('ω  (rad/s)', yax, mt - 28);
+  ctx.fillText('f  (Hz)', yax, mt - 28);
   ctx.fillText('P (W)', ml + pw + 28, xAx + 18);
 
   // droop line
@@ -644,18 +638,15 @@ function drawGraph(p, c) {
   }
 
   label2(
-    `ω_max = ${wAtPminEnd.toFixed(2)} rad/s`,
-    `(${(wAtPminEnd / TWO_PI).toFixed(1)} Hz)`,
+    `f_max = ${(wAtPminEnd / TWO_PI).toFixed(3)} Hz`, '',
     yax + 7, ty(wmax) - 8, 'red'
   );
   label2(
-    `ω₀ = ${w0.toFixed(2)} rad/s`,
-    `(${(w0 / TWO_PI).toFixed(1)} Hz)`,
+    `f₀ = ${(w0 / TWO_PI).toFixed(3)} Hz`, '',
     yax + 7, ty(w0) - 8, '#222'
   );
   label2(
-    `ω_min = ${wAtPmaxEnd.toFixed(2)} rad/s`,
-    `(${(wAtPmaxEnd / TWO_PI).toFixed(1)} Hz)`,
+    `f_min = ${(wAtPmaxEnd / TWO_PI).toFixed(3)} Hz`, '',
     yax + 7, ty(wmin) - 8, 'red'
   );
 
@@ -695,18 +686,17 @@ function renderPoints(p, c) {
     const pW = (+pt.p) * 1000;
     const wTheo = c.w0 - c.m * (pW - c.pref);
     const fTheo = wTheo / TWO_PI;
-    const measVal = toRadS(+pt.w);
-    const dw = measVal - wTheo;
-    const dwClass = Math.abs(dw) < 0.01 ? '' : (dw > 0 ? 'delta-pos' : 'delta-neg');
-    const dwSign  = dw > 0 ? '+' : '';
-    const unitLabel = wUnit === 'Hz' ? 'Hz' : 'rad/s';
+    const measHz  = +pt.w;                           // 統一 Hz
+    const df = measHz - fTheo;
+    const dfClass = Math.abs(df) < 0.001 ? '' : (df > 0 ? 'delta-pos' : 'delta-neg');
+    const dfSign  = df >= 0 ? '+' : '';
     return `
       <tr data-id="${pt.id}">
         <td><div class="color-swatch" style="background:${POINT_COLOR}"></div></td>
         <td><input type="number" class="pt-p" value="${pt.p}" step="1"></td>
-        <td><input type="number" class="pt-w" value="${pt.w}" step="0.01"></td>
-        <td class="col-calc">理論: ω = ${wTheo.toFixed(3)} rad/s / f = ${fTheo.toFixed(4)} Hz
-            &nbsp;<span class="${dwClass}">(Δ${unitLabel} = ${dwSign}${dw.toFixed(4)})</span></td>
+        <td><input type="number" class="pt-w" value="${pt.w}" step="0.001"></td>
+        <td class="col-calc">理論: f = ${fTheo.toFixed(4)} Hz
+            &nbsp;<span class="${dfClass}">(Δf = ${dfSign}${df.toFixed(4)} Hz)</span></td>
         <td class="col-del"><button class="btn btn-del" data-act="del">刪除</button></td>
       </tr>
     `;
@@ -763,7 +753,7 @@ function drawDataPoints(p, c) {
       ctx2.fillStyle = POINT_COLOR;
       ctx2.font = 'bold 11px Arial';
       ctx2.textAlign = 'left';
-      ctx2.fillText(`(${pt.p}k, ${pt.w} ${wUnit === 'Hz' ? 'Hz' : 'rad/s'})`, sx + 9, sy - 8);
+      ctx2.fillText(`(${pt.p}k, ${pt.w} Hz)`, sx + 9, sy - 8);
     }
   });
 }
@@ -800,7 +790,7 @@ function buildSVG(p, c) {
   svg += `<polygon points="${f(yax-5)},${f(mt-13)} ${f(yax)},${f(mt-22)} ${f(yax+5)},${f(mt-13)}" fill="#222"/>\n`;
   svg += `<line x1="${f(ml-16)}" y1="${f(xAx)}" x2="${f(ml+pw+18)}" y2="${f(xAx)}" stroke="#222" stroke-width="1.8"/>\n`;
   svg += `<polygon points="${f(ml+pw+13)},${f(xAx-5)} ${f(ml+pw+22)},${f(xAx)} ${f(ml+pw+13)},${f(xAx+5)}" fill="#222"/>\n`;
-  svg += `<text x="${f(yax)}" y="${f(mt-28)}" font-size="14" font-style="italic" text-anchor="middle" fill="#222">ω  (rad/s)</text>\n`;
+  svg += `<text x="${f(yax)}" y="${f(mt-28)}" font-size="14" font-style="italic" text-anchor="middle" fill="#222">f  (Hz)</text>\n`;
   svg += `<text x="${f(ml+pw+28)}" y="${f(xAx+18)}" font-size="14" font-style="italic" text-anchor="middle" fill="#222">P (W)</text>\n`;
 
   // droop line
@@ -816,9 +806,9 @@ function buildSVG(p, c) {
     svg += `<text x="${f(x)}" y="${f(y)}" font-size="11" fill="${c1||'red'}">${esc(t1)}</text>\n`;
     svg += `<text x="${f(x)}" y="${f(y+13)}" font-size="11" fill="#555">${esc(t2)}</text>\n`;
   };
-  lbl(`ω_max = ${wAtPmin.toFixed(2)} rad/s`, `(${(wAtPmin/TWO_PI).toFixed(1)} Hz)`, yax+7, ty(wmax)-8, 'red');
-  lbl(`ω₀ = ${w0.toFixed(2)} rad/s`,         `(${(w0/TWO_PI).toFixed(1)} Hz)`,      yax+7, ty(w0)-8, '#222');
-  lbl(`ω_min = ${wAtPmax.toFixed(2)} rad/s`, `(${(wAtPmax/TWO_PI).toFixed(1)} Hz)`, yax+7, ty(wmin)-8, 'red');
+  lbl(`f_max = ${(wAtPmin/TWO_PI).toFixed(3)} Hz`, '', yax+7, ty(wmax)-8, 'red');
+  lbl(`f₀ = ${(w0/TWO_PI).toFixed(3)} Hz`,         '', yax+7, ty(w0)-8, '#222');
+  lbl(`f_min = ${(wAtPmax/TWO_PI).toFixed(3)} Hz`, '', yax+7, ty(wmin)-8, 'red');
 
   svg += `<text x="${f(tx(-pmax))}" y="${f(xAx+20)}" font-size="11" text-anchor="middle" fill="#333">−P_max = −${p.pmaxK} kW</text>\n`;
   svg += `<text x="${f(tx(pref))}"  y="${f(xAx+20)}" font-size="11" text-anchor="middle" fill="#333">P_ref = ${p.prefK}kW</text>\n`;
@@ -847,7 +837,7 @@ function buildSVG(p, c) {
     }
     svg += svgMarker(f, sx, sy, POINT_COLOR) + '\n';
     if (showLabels) {
-      svg += `<text x="${f(sx+9)}" y="${f(sy-8)}" font-family="Arial" font-size="11" font-weight="bold" fill="${POINT_COLOR}">(${esc(pt.p)}k, ${esc(pt.w)} ${esc(wUnit==='Hz'?'Hz':'rad/s')})</text>\n`;
+      svg += `<text x="${f(sx+9)}" y="${f(sy-8)}" font-family="Arial" font-size="11" font-weight="bold" fill="${POINT_COLOR}">(${esc(pt.p)}k, ${esc(pt.w)} Hz)</text>\n`;
     }
   });
 
@@ -929,20 +919,20 @@ document.getElementById('export-results').addEventListener('click', () => {
 document.getElementById('download-template').addEventListener('click', () => {
   const ws_data = [
     ['F-P Droop 量測資料匯入範本'],
-    ['說明: 填入 P (kW) 與 ω；單位欄填 rad_s 或 Hz，留空則沿用網頁目前單位'],
+    ['說明: 填入 P (kW) 與 f (Hz)'],
     [],
-    ['P (kW)', 'ω 值', '單位 (rad_s 或 Hz)'],
-    [50,  375.43, 'rad_s'],
-    [-50, 378.57, 'rad_s'],
-    [30,  376.05, 'rad_s'],
-    [0,   60,     'Hz'],
-    [80,  374.68, 'rad_s'],
+    ['P (kW)', 'f (Hz)'],
+    [50,   59.75],
+    [-50,  60.25],
+    [30,   59.85],
+    [0,    60.00],
+    [80,   59.60],
   ];
   const ws = XLSX.utils.aoa_to_sheet(ws_data);
-  ws['!cols'] = [{wch:12},{wch:14},{wch:24}];
+  ws['!cols'] = [{wch:12},{wch:14}];
   ws['!merges'] = [
-    {s:{r:0,c:0},e:{r:0,c:2}},
-    {s:{r:1,c:0},e:{r:1,c:2}},
+    {s:{r:0,c:0},e:{r:0,c:1}},
+    {s:{r:1,c:0},e:{r:1,c:1}},
   ];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '量測資料');
@@ -969,21 +959,16 @@ document.getElementById('excel-file').addEventListener('change', async e => {
       .filter(r => r[0] !== '' && r[0] !== undefined && !isNaN(+r[0]));
 
     if (dataRows.length === 0) {
-      alert('找不到有效資料列。請確認格式：第一欄 P (kW)、第二欄 ω 值、第三欄 單位 (rad_s 或 Hz，可選)。');
+      alert('找不到有效資料列。請確認格式：第一欄 P (kW)、第二欄 f (Hz)。');
       return;
     }
 
-    const c = compute(params());
     const imported = dataRows.map(r => {
-      const rawUnit = (r[2] || '').toString().trim().toLowerCase().replace(/[^a-z_]/g, '');
-      const unit = rawUnit === 'hz' ? 'Hz' : 'rad_s';
       const wRaw = +r[1];
-      // store in current wUnit
-      let wStored;
-      if (unit === 'Hz' && wUnit === 'rad_s') wStored = TWO_PI * wRaw;
-      else if (unit === 'rad_s' && wUnit === 'Hz') wStored = wRaw / TWO_PI;
-      else wStored = wRaw;
-      return { id: nextId++, p: +r[0], w: +wStored.toFixed(4) };
+      const rawUnit = (r[2] || '').toString().trim().toLowerCase().replace(/[^a-z_]/g, '');
+      // 若第三欄明確填 rad_s，自動換算成 Hz；其餘一律視為 Hz
+      const wHz = rawUnit === 'rad_s' ? wRaw / TWO_PI : wRaw;
+      return { id: nextId++, p: +r[0], w: +wHz.toFixed(4) };
     }).filter(pt => !isNaN(pt.p) && !isNaN(pt.w));
 
     dataPoints = imported;
@@ -1020,18 +1005,6 @@ document.getElementById('droop-opacity').addEventListener('input', e => {
 
 document.getElementById('download-svg').addEventListener('click', downloadSVG);
 
-document.getElementById('w-unit').addEventListener('change', e => {
-  const prev = wUnit;
-  wUnit = e.target.value;
-  document.getElementById('w-col-header').innerHTML =
-    wUnit === 'Hz' ? 'f (Hz)' : 'ω (rad/s)';
-  // convert existing point values
-  dataPoints.forEach(pt => {
-    if (prev === 'rad_s' && wUnit === 'Hz') pt.w = +(pt.w / TWO_PI).toFixed(4);
-    else if (prev === 'Hz' && wUnit === 'rad_s') pt.w = +(pt.w * TWO_PI).toFixed(4);
-  });
-  update();
-});
 
 document.querySelectorAll('.param-row input').forEach(el =>
   el.addEventListener('input', update));
